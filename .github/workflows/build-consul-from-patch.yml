@@ -47,29 +47,29 @@ jobs:
         git clone --depth 1 --branch "${CONSUL_VERSION}" https://github.com/hashicorp/consul.git consul-src
 
     # ─────────────────────────────  PATCHES  ─────────────────────────────
-    - name: Apply local patches (if any)
-      run: |
-        set -e
-        if [ -d patches ]; then
-          shopt -s nullglob
-          PATCHES=(patches/*.patch)
-          if [ ${#PATCHES[@]} -eq 0 ]; then
-            echo "No patches found in patches/ ― skipping."
-          else
-            echo "Found ${#PATCHES[@]} patch(es). Applying…"
-            for p in "${PATCHES[@]}"; do
-              echo " → $p"
-              if ! git -C consul-src apply --whitespace=fix "../$p"; then
-                echo "git apply failed, falling back to patch -p1"
-                (cd consul-src && patch -p1 < "../$p")
-              fi
-            done
-            # Запомним diff для артефакта
-            (cd consul-src && git --no-pager diff) > applied-patches.diff
-          fi
-        else
-          echo "Directory patches/ not found ― skipping patch step."
-        fi
+    # - name: Apply local patches (if any)
+    #   run: |
+    #     set -e
+    #     if [ -d patches ]; then
+    #       shopt -s nullglob
+    #       PATCHES=(patches/*.patch)
+    #       if [ ${#PATCHES[@]} -eq 0 ]; then
+    #         echo "No patches found in patches/ ― skipping."
+    #       else
+    #         echo "Found ${#PATCHES[@]} patch(es). Applying…"
+    #         for p in "${PATCHES[@]}"; do
+    #           echo " → $p"
+    #           if ! git -C consul-src apply --whitespace=fix "../$p"; then
+    #             echo "git apply failed, falling back to patch -p1"
+    #             (cd consul-src && patch -p1 < "../$p")
+    #           fi
+    #         done
+    #         # Запомним diff для артефакта
+    #         (cd consul-src && git --no-pager diff) > applied-patches.diff
+    #       fi
+    #     else
+    #       echo "Directory patches/ not found ― skipping patch step."
+    #     fi
 
     # ───────────────────────────  VERSION TAG  ───────────────────────────
     - name: Compute patched version suffix
