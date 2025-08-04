@@ -41,6 +41,21 @@ jobs:
         with:
           go-version: ${{ steps.get-go.outputs.go-version }}
 
+      - name: Cache Go modules and build cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/go-build
+            ${{ env.GO_CACHE_DIR }}
+            $(go env GOPATH)/pkg/mod
+          key: ${{ runner.os }}-go-${{ steps.get-go.outputs.go-version }}-mod-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-${{ steps.get-go.outputs.go-version }}-mod-
+
+      - name: Prepare Go modules
+        run: |
+          go mod download
+
       - name: Setup Node.js 18 and Yarn
         uses: actions/setup-node@v4
         with:
@@ -83,6 +98,9 @@ jobs:
           OUT_NAME=consul_${CONSUL_VERSION}_${{ matrix.goos }}_${{ matrix.goarch }}
           mkdir -p bin
           GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -ldflags="$LDFLAGS" -trimpath -buildvcs=false -o bin/$OUT_NAME ./main.go
+
+          # верификация
+          ./bin/$OUT_NAME version
 
       - name: Upload binary artifact
         uses: actions/upload-artifact@v4
