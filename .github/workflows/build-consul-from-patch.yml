@@ -40,7 +40,6 @@ jobs:
         uses: actions/setup-go@v4
         with:
           go-version: ${{ steps.get-go.outputs.go-version }}
-          cache: 'go'
 
       - name: Setup Node.js 18 and Yarn
         uses: actions/setup-node@v4
