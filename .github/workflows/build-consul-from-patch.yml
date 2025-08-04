@@ -1,126 +1,92 @@
-name: Build Consul with Local Patches
+name: build-consul
 
 on:
   workflow_dispatch:
     inputs:
-      consul_version:
-        description: 'Git tag/branch of Consul to build'
-        required: false
-        default: 'v1.21.3'
-      go_version:
-        description: 'Go version'
-        required: false
-        default: '1.21'
-  push:
-    branches: ['main']
-
-env:
-  CONSUL_VERSION: ${{ github.event.inputs.consul_version || 'v1.21.3' }}
-  GO_VERSION:      ${{ github.event.inputs.go_version     || '1.21'  }}
+      tag:
+        description: 'Git tag to checkout (e.g. v1.21.3)'
+        required: true
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+    env:
+      PKG_NAME: consul
+
     steps:
-    # ─────────────────────────────  SOURCES  ─────────────────────────────
-    - name: Checkout current repo (contains patches/)
-      uses: actions/checkout@v4
+      - name: Checkout at tag
+        uses: actions/checkout@v4
+        with:
+          repository: hashicorp/consul
+          ref: ${{ inputs.tag }}
+          fetch-depth: 0
 
-    - name: Set up Go
-      uses: actions/setup-go@v4
-      with:
-        go-version: ${{ env.GO_VERSION }}
-        cache: true
+      - name: Determine Go version
+        id: get-go
+        run: |
+          if [ -f .go-version ]; then
+            GO_VER=$(cat .go-version)
+          else
+            GO_VER=1.21.6
+          fi
+          echo "go-version=$GO_VER" >> "$GITHUB_OUTPUT"
 
-    - name: Cache Go modules & build cache
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~/.cache/go-build
-          ~/go/pkg/mod
-        key: ${{ runner.os }}-go-${{ env.GO_VERSION }}-${{ hashFiles('**/go.sum') }}
-        restore-keys: |
-          ${{ runner.os }}-go-${{ env.GO_VERSION }}-
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ steps.get-go.outputs.go-version }}
+          cache: 'go'
 
-    - name: Clone Consul sources
-      run: |
-        git clone --depth 1 --branch "${CONSUL_VERSION}" https://github.com/hashicorp/consul.git consul-src
+      - name: Setup Node.js 18 and Yarn
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'yarn'
+          cache-dependency-path: 'ui/yarn.lock'
 
-    # ─────────────────────────────  PATCHES  ─────────────────────────────
-    # - name: Apply local patches (if any)
-    #   run: |
-    #     set -e
-    #     if [ -d patches ]; then
-    #       shopt -s nullglob
-    #       PATCHES=(patches/*.patch)
-    #       if [ ${#PATCHES[@]} -eq 0 ]; then
-    #         echo "No patches found in patches/ ― skipping."
-    #       else
-    #         echo "Found ${#PATCHES[@]} patch(es). Applying…"
-    #         for p in "${PATCHES[@]}"; do
-    #           echo " → $p"
-    #           if ! git -C consul-src apply --whitespace=fix "../$p"; then
-    #             echo "git apply failed, falling back to patch -p1"
-    #             (cd consul-src && patch -p1 < "../$p")
-    #           fi
-    #         done
-    #         # Запомним diff для артефакта
-    #         (cd consul-src && git --no-pager diff) > applied-patches.diff
-    #       fi
-    #     else
-    #       echo "Directory patches/ not found ― skipping patch step."
-    #     fi
+      - name: Build UI
+        run: |
+          set -eux
+          CONSUL_VERSION=${{ inputs.tag }}
+          if [ -x build-support/scripts/build-date.sh ]; then
+            CONSUL_DATE=$(./build-support/scripts/build-date.sh)
+          else
+            CONSUL_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          fi
+          GIT_COMMIT=$(git rev-parse --short=8 HEAD)
+          echo "Building UI for version $CONSUL_VERSION commit $GIT_COMMIT date $CONSUL_DATE"
+          cd ui
+          yarn install --frozen-lockfile
+          make
+          cd ..
+          rm -rf agent/uiserver/dist
+          mv ui/packages/consul-ui/dist agent/uiserver/
 
-    # ───────────────────────────  VERSION TAG  ───────────────────────────
-    - name: Compute patched version suffix
-      id: ver
-      run: |
-        BASE="${CONSUL_VERSION}"
-        if [ -f applied-patches.diff ] && [ -s applied-patches.diff ]; then
-          HASH=$(sha1sum applied-patches.diff | cut -c1-8)
-          echo "version=${BASE}-patched.${HASH}" >> "$GITHUB_OUTPUT"
-        else
-          echo "version=${BASE}" >> "$GITHUB_OUTPUT"
-        fi
+      - name: Build Consul binary
+        run: |
+          set -eux
+          export CGO_ENABLED=0
+          CONSUL_VERSION=${{ inputs.tag }}
+          if [ -x build-support/scripts/build-date.sh ]; then
+            CONSUL_DATE=$(./build-support/scripts/build-date.sh)
+          else
+            CONSUL_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          fi
+          GIT_COMMIT=$(git rev-parse --short=8 HEAD)
+          LDFLAGS="-X github.com/hashicorp/consul/version.GitCommit=${GIT_COMMIT} \
+          -X github.com/hashicorp/consul/version.GitDescribe=${CONSUL_VERSION} \
+          -X github.com/hashicorp/consul/version.BuildDate=${CONSUL_DATE}"
+          OUT_NAME=consul_${CONSUL_VERSION}_${{ matrix.goos }}_${{ matrix.goarch }}
+          mkdir -p bin
+          GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -ldflags="$LDFLAGS" -trimpath -buildvcs=false -o bin/$OUT_NAME ./main.go
 
-    # ─────────────────────────────  BUILD  ───────────────────────────────
-    - name: Build Consul
-      run: |
-        cd consul-src
-        # Встроим метаданные версии/коммита/даты
-        LD_FLAGS="-X github.com/hashicorp/consul/version.BuildDate=$(date -u +%Y-%m-%d) \
-                  -X github.com/hashicorp/consul/version.GitDescribe=${{ steps.ver.outputs.version }} \
-                  -X github.com/hashicorp/consul/version.GitCommit=${GITHUB_SHA::8}"
-        make dev GOFLAGS="-ldflags=\"$LD_FLAGS\""
-
-    # ───────────────────────────  SELF-TEST  ────────────────────────────
-    - name: Verify built binary
-      run: |
-        # Try canonical path first
-        if [ -x consul-src/bin/consul ]; then
-          echo "Found consul in consul-src/bin/consul"
-          consul-src/bin/consul version
-        # Fallback to $GOPATH/bin (rare)
-        elif [ -x "$(go env GOPATH)/bin/consul" ]; then
-          echo "Found consul in \$GOPATH/bin"
-          "$(go env GOPATH)/bin/consul" version
-        else
-          echo "::error::Consul binary not found!"
-          ls -al consul-src/bin || true
-          exit 1
-        fi
-
-    # ──────────────────────────  ARTIFACTS  ─────────────────────────────
-    - name: Upload consul binary
-      uses: actions/upload-artifact@v4
-      with:
-        name: consul-${{ steps.ver.outputs.version }}
-        path: consul-src/bin/consul
-        if-no-files-found: error
-
-    - name: Upload applied patch diff
-      if: ${{ hashFiles('applied-patches.diff') != '' }}
-      uses: actions/upload-artifact@v4
-      with:
-        name: applied-patches.diff
-        path: applied-patches.diff
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: consul-${{ inputs.tag }}-linux-amd64
+          path: bin/
