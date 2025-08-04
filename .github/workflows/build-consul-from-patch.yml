@@ -1,0 +1,136 @@
+name: Build Consul (linux/amd64) from patches
+
+on:
+  workflow_dispatch:
+    inputs:
+      consul_ref:
+        description: "Git ref (tag/branch/commit) в hashicorp/consul"
+        required: true
+        default: "main"
+      patch_dir:
+        description: "Folder with patches (относительно корня репозитория)"
+        required: true
+        default: "patches"
+      build_tags:
+        description: "Go build tags (optional, e.g. 'dev')"
+        required: false
+        default: ""
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout this repo (for patch files)
+        uses: actions/checkout@v4
+
+      - name: Clone Consul sources
+        run: |
+          set -euxo pipefail
+          git clone --depth 1 --branch "${{ inputs.consul_ref }}" \
+            https://github.com/hashicorp/consul.git
+          cd consul
+          echo "CONSUL_COMMIT=$(git rev-parse --short=12 HEAD)" >> $GITHUB_ENV
+          echo "Cloned consul@$(git rev-parse --short=12 HEAD)"
+
+      # 3. Go-toolchain from go.mod
+      - name: Setup Go (version from consul/go.mod)
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: consul/go.mod
+          cache: true
+
+      # 4. Check patches directory
+      - name: Validate patches directory
+        run: |
+          set -euxo pipefail
+          if [ ! -d "${{ inputs.patch_dir }}" ]; then
+            echo "Directory '${{ inputs.patch_dir }}' not found"; exit 1
+          fi
+          files=$(ls -1 "${{ inputs.patch_dir }}"/*.patch "${{ inputs.patch_dir }}"/*.diff 2>/dev/null || true)
+          if [ -z "$files" ]; then
+            echo "No .patch or .diff files in '${{ inputs.patch_dir }}'"; exit 1
+          fi
+
+      # 5. Dry-run for patches (if any patch does not apply, the build will fail)
+      - name: Dry-run patches
+        run: |
+          set -euxo pipefail
+          cd consul
+          for p in $(ls -1 "../${{ inputs.patch_dir }}"/*.patch "../${{ inputs.patch_dir }}"/*.diff | sort); do
+            echo "Checking $p"
+            git apply --check "$p"
+          done
+
+      # 6. Apply patches
+      - name: Apply patches
+        run: |
+          set -euxo pipefail
+          cd consul
+          for p in $(ls -1 "../${{ inputs.patch_dir }}"/*.patch "../${{ inputs.patch_dir }}"/*.diff | sort); do
+            echo "Applying $p"
+            git apply --whitespace=nowarn "$p"
+          done
+
+      # 7. Setup Node (for UI build)
+      - name: Setup Node (for UI build)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'yarn'
+          cache-dependency-path: 'consul/ui/yarn.lock'
+
+      - name: Build Consul UI
+        run: |
+          set -euxo pipefail
+          pushd consul/ui
+          make
+          popd
+          rm -rf consul/agent/uiserver/dist
+          mv consul/ui/packages/consul-ui/dist consul/agent/uiserver/
+
+      # 8. Compute build metadata
+      - name: Compute build metadata
+        id: meta
+        run: |
+          set -euxo pipefail
+          SHORT_SHA="$(cd consul && git rev-parse --short=8 HEAD)"
+          PRODUCT_VERSION="${{ inputs.consul_ref }}"
+          BUILD_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          echo "LDFLAGS=-X github.com/hashicorp/consul/version.GitCommit=${SHORT_SHA} \
+          -X github.com/hashicorp/consul/version.GitDescribe=${PRODUCT_VERSION} \
+          -X github.com/hashicorp/consul/version.BuildDate=${BUILD_DATE}" >> $GITHUB_OUTPUT
+
+      # 9. Go build
+      - name: Build Consul (linux/amd64)
+        env:
+          GOOS: linux
+          GOARCH: amd64
+          CGO_ENABLED: 0
+        run: |
+          set -euxo pipefail
+          cd consul
+          mkdir -p build/linux-amd64
+          go mod download
+          OUT="build/linux-amd64/consul"
+          go build -trimpath -buildvcs=false \
+            -ldflags "${{ steps.meta.outputs.LDFLAGS }} -s -w" \
+            -tags "${{ inputs.build_tags }}" \
+            -o "$OUT" ./cmd/consul
+          "$OUT" --version || true
+          echo "OUT_BIN=$OUT" >> $GITHUB_ENV
+
+      # 10. Package artifact
+      - name: Package artifact
+        run: |
+          set -euxo pipefail
+          cd consul
+          NAME="consul-${{ env.CONSUL_COMMIT }}-linux-amd64"
+          tar -C "$(dirname "${{ env.OUT_BIN }}")" -czf "dist/${NAME}.tar.gz" "$(basename "${{ env.OUT_BIN }}")"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: consul-${{ env.CONSUL_COMMIT }}-linux-amd64
+          path: consul/dist/*.tar.gz
+          if-no-files-found: error
