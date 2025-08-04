@@ -6,7 +6,7 @@ on:
       consul_ref:
         description: "Git ref (tag/branch/commit) в hashicorp/consul"
         required: true
-        default: "main"
+        default: "v1.21.3"
       patch_dir:
         description: "Folder with patches (относительно корня репозитория)"
         required: true
