@@ -19,7 +19,10 @@ jobs:
       PKG_NAME: consul
 
     steps:
-      - name: Checkout at tag
+      - name: Checkout this repo (with patches)
+        uses: actions/checkout@v4
+
+      - name: Checkout Consul at tag
         uses: actions/checkout@v4
         with:
           repository: hashicorp/consul
