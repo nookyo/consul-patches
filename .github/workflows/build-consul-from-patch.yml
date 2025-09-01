@@ -160,9 +160,7 @@ jobs:
           version: ${{ env.VER_NO_V }} # без 'v'
           target: default
           arch: amd64
-          tags: |
-            docker.io/hashicorp/${{ env.repo }}:${{ env.VER_NO_V }}
-          dev_tags: |
-            docker.io/hashicorppreview/${{ env.repo }}:${{ env.VER_NO_V }}
+          tags: docker.io/hashicorp/${{ github.event.repository.name }}:${{ env.VER_NO_V }}
+          dev_tags: docker.io/hashicorppreview/${{ github.event.repository.name }}:${{ env.VER_NO_V }}
           smoke_test: .github/scripts/verify_docker.sh v${{ env.VER_NO_V }}
           workdir: consul
