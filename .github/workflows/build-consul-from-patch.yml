@@ -67,20 +67,23 @@ jobs:
            of the patches directory:"
           ls -la patches
 
-      - name: Apply local patches
+      - name: Apply local .diff patches
         run: |
           set -euxo pipefail
-          cd src   # тут репо Consul
+          cd src  # тут git-репозиторий Consul
+
           git config user.email "actions@users.noreply.github.com"
           git config user.name "GitHub Actions"
+          # на всякий случай избегаем проблем с переводами строк
+          git config core.autocrlf false
 
           if compgen -G "../patches/*.diff" > /dev/null; then
-            for p in ../patches/*.diff; do
-              echo "Applying $p"
-              git apply --3way --whitespace=fix "$p"
-            done
+            # 1) Проверяем, что контекст совпадает (упадём здесь, если нет)
+            git apply --check ../patches/*.diff
+            # 2) Применяем с авто-правкой пробелов/табов
+            git apply --whitespace=fix ../patches/*.diff
             git add -A
-            git commit -m "Apply local patches from patches/"
+            git commit -m "Apply local .diff patches from patches/"
           else
             echo "No .diff patches found in patches/; skipping."
           fi
