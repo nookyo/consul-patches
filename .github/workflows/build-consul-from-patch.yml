@@ -93,7 +93,7 @@ jobs:
 
           git add -A
           git commit -m "Apply unified-diff patches"
-          rm -rf ../patches_repo/patches/
+          rm -rf patches_repo
 
 
 
