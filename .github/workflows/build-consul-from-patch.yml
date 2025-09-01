@@ -160,13 +160,12 @@ jobs:
       - name: Docker Build (HashiCorp action)
         uses: hashicorp/actions-docker-build@v2
         with:
-          version: ${{ env.VER_NO_V }}                 # 1.21.3 (без 'v')
+          version: ${{ env.VER_NO_V }}          # 1.21.3 (без 'v')
           target: default
           arch: amd64
-          # ВАЖНО: явно передаём имя артефакта и имя бинарника
-          zip_name: consul_${{ env.VER_NO_V }}_linux_amd64.zip
-          bin_name: consul
-          # теги — направь в свой реестр
+          zip_artifact_name: consul_${{ env.VER_NO_V }}_linux_amd64.zip   # <-- ВАЖНО: имя ровно как у загруженного артефакта
+          bin_name: consul                                       # <-- ВАЖНО: внутри zip файл называется 'consul'
           tags: ghcr.io/${{ github.repository }}:${{ env.VER_NO_V }}
           smoke_test: .github/scripts/verify_docker.sh v${{ env.VER_NO_V }}
           workdir: consul
+
