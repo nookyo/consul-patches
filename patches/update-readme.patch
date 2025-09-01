@@ -1,6 +1,1 @@
-diff --git a/README.md b/README.md
-index 6874819733..4f71862083 100644
---- a/README.md
-+++ b/README.md
-@@ -8,0 +9,2 @@
-+This is fork!
+﻿diff --git a/README.md b/README.mdindex 6874819733..4f71862083 100644--- a/README.md+++ b/README.md@@ -6,6 +6,8 @@ [![Docker Pulls](https://img.shields.io/docker/pulls/_/consul.svg)](https://hub.docker.com/_/consul) [![Go Report Card](https://goreportcard.com/badge/github.com/hashicorp/consul)](https://goreportcard.com/report/github.com/hashicorp/consul) +This is fork!+ Consul is a distributed, highly available, and data center aware solution to connect and configure applications across dynamic, distributed infrastructure.  * Website: https://www.consul.io
