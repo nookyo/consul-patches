@@ -80,38 +80,6 @@ jobs:
       #     done
       #     rm -rf ../patches_repo/patches/
 
-      - name: Apply unified-diff patches
-        working-directory: consul
-        run: |
-          set -euxo pipefail
-          shopt -s nullglob
-
-          for p in ../patches_repo/patches/*.patch; do
-            echo "Applying $p..."
-            git apply -p1 --ignore-space-change --ignore-whitespace "$p"
-          done
-
-          git add -A
-          git commit -m "Apply unified-diff patches"
-          rm -rf patches_repo
-
-
-
-      # - name: Apply local patches
-      #   run: |
-      #     set -euxo pipefail
-      #     git config user.email "actions@users.noreply.github.com"
-      #     git config user.name "GitHub Actions"
-      #     git config core.autocrlf false
-
-      #     if compgen -G "../patches_repo/patches/*.patch" > /dev/null; then
-      #       echo "Applying patches:"
-      #       ls -1 ../patches_repo/patches/*.patch
-      #       git am --3way --keep-cr ../patches_repo/patches/*.patch
-      #     else
-      #       echo "No .patch files found; skipping."
-      #     fi
-
       - name: Prepare Go modules
         working-directory: consul
         run: go mod download
