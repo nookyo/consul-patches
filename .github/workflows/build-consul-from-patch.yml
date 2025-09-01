@@ -23,6 +23,9 @@ jobs:
       # 1) Твой репо (с папкой patches/) в корень
       - name: Checkout this repo (with patches)
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          path: patches_repo
 
       # 2) Consul в подкаталог consul/
       - name: Checkout Consul at tag
@@ -64,8 +67,8 @@ jobs:
         run: |
           echo "Workspace: $(pwd)"
           ls -la
-          echo "== patches/"
-          ls -la patches || true
+          echo "== patches_repo/patches/"
+          ls -la patches_repo/patches || true
           echo "== consul/"
           ls -la consul | head -n 50
 
@@ -77,13 +80,13 @@ jobs:
           git config user.name "GitHub Actions"
           git config core.autocrlf false
 
-          if compgen -G "../patches/*.diff" > /dev/null; then
-            git apply --check ../patches/*.diff
-            git apply --whitespace=fix ../patches/*.diff
+          if compgen -G "..patches_repo/patches/*.diff" > /dev/null; then
+            git apply --check ..patches_repo/patches/*.diff
+            git apply --whitespace=fix ..patches_repo/patches/*.diff
             git add -A
-            git commit -m "Apply local .diff patches from ../patches/"
+            git commit -m "Apply local .diff patches from ..patches_repo/patches/"
           else
-            echo "No .diff patches found in ../patches; skipping."
+            echo "No .diff patches found in ..patches_repo/patches; skipping."
           fi
 
       - name: Prepare Go modules
