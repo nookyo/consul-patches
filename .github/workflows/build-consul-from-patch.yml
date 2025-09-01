@@ -19,6 +19,8 @@ jobs:
     env:
       PKG_NAME: consul
 
+    outputs:
+      ver_no_v: ${{ steps.set_ver.outputs.ver_no_v }}
     steps:
       - name: Checkout this repo (with patches)
         uses: actions/checkout@v4
@@ -69,7 +71,6 @@ jobs:
           ls -la patches_repo/patches || true
           echo "== consul/"
           ls -la consul | head -n 50
-
 
       # - name: Apply patches
       #   working-directory: consul
@@ -131,6 +132,7 @@ jobs:
           ./bin/$OUT_NAME version
 
       - name: Package binary as zip (for actions-docker-build)
+        id: set_ver
         working-directory: consul
         run: |
           set -eux
@@ -145,3 +147,39 @@ jobs:
         with:
           name: consul_${{ env.VER_NO_V }}_linux_amd64.zip
           path: consul/consul_${{ env.VER_NO_V }}_linux_amd64.zip
+
+  build-docker:
+    name: Docker amd64 build (like upstream)
+    needs: build
+    runs-on: ubuntu-latest
+    env:
+      repo: ${{ github.event.repository.name }}
+      full_tag: ${{ inputs.tag }}
+
+    steps:
+      - name: Checkout Consul at tag
+        uses: actions/checkout@v4
+        with:
+          repository: hashicorp/consul
+          ref: ${{ inputs.tag }}
+          fetch-depth: 0
+          path: consul
+
+      - name: Download the linux/amd64 zip artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: consul_${{ needs.build.outputs.ver_no_v }}_linux_amd64.zip
+          path: consul
+
+      - name: Docker Build (HashiCorp action)
+        uses: hashicorp/actions-docker-build@v2
+        with:
+          version: ${{ needs.build.outputs.ver_no_v }} # без 'v'
+          target: default
+          arch: amd64
+          tags: |
+            docker.io/hashicorp/${{ env.repo }}:${{ needs.build.outputs.ver_no_v}}
+          dev_tags: |
+            docker.io/hashicorppreview/${{ env.repo }}:${{ needs.build.outputs.ver_no_v }}
+          smoke_test: .github/scripts/verify_docker.sh v${{ needs.build.outputs.ver_no_v }}
+          workdir: consul
