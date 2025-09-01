@@ -21,6 +21,7 @@ jobs:
 
     outputs:
       ver_no_v: ${{ steps.set_ver.outputs.ver_no_v }}
+
     steps:
       - name: Checkout this repo (with patches)
         uses: actions/checkout@v4
@@ -138,29 +139,38 @@ jobs:
           set -eux
           CONSUL_VERSION=${{ inputs.tag }}
           VER_NO_V="${CONSUL_VERSION#v}"
+          echo "ver_no_v=$VER_NO_V" >> "$GITHUB_OUTPUT"
           echo "VER_NO_V=$VER_NO_V" >> "$GITHUB_ENV"
-          cp "bin/consul_${CONSUL_VERSION}_linux_amd64" bin/consul
-          zip -j "consul_${VER_NO_V}_linux_amd64.zip" bin/consul
 
-      - name: Upload zip artifact for docker build
+          cp "bin/consul_${CONSUL_VERSION}_linux_amd64" bin/consul
+          chmod +x bin/consul
+
+          mkdir -p dist/linux/amd64
+          zip -9j "dist/linux/amd64/consul_${VER_NO_V}_linux_amd64.zip" bin/consul
+
+      - name: Upload zip artifact (exact upstream name)
         uses: actions/upload-artifact@v4
         with:
           name: consul_${{ env.VER_NO_V }}_linux_amd64.zip
-          path: consul/consul_${{ env.VER_NO_V }}_linux_amd64.zip
+          path: consul/dist/linux/amd64/consul_${{ env.VER_NO_V }}_linux_amd64.zip
 
-      - name: Download the linux/amd64 zip artifact
-        uses: actions/download-artifact@v4
+      # login в реестр — поменяй под себя
+      - name: Login to GHCR
+        uses: docker/login-action@v3
         with:
-          name: consul_${{ env.VER_NO_V }}_linux_amd64.zip
-          path: consul
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Docker Build (HashiCorp action)
         uses: hashicorp/actions-docker-build@v2
+        env:
+          BIN_NAME: consul
+          PKG_NAME: consul
         with:
           version: ${{ env.VER_NO_V }} # без 'v'
           target: default
           arch: amd64
-          tags: docker.io/hashicorp/${{ github.event.repository.name }}:${{ env.VER_NO_V }}
-          dev_tags: docker.io/hashicorppreview/${{ github.event.repository.name }}:${{ env.VER_NO_V }}
+          tags: ghcr.io/${{ github.repository }}:${{ env.VER_NO_V }}
           smoke_test: .github/scripts/verify_docker.sh v${{ env.VER_NO_V }}
           workdir: consul
