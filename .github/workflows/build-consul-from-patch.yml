@@ -20,14 +20,12 @@ jobs:
       PKG_NAME: consul
 
     steps:
-      # 1) Твой репо (с папкой patches/) в корень
       - name: Checkout this repo (with patches)
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           path: patches_repo
 
-      # 2) Consul в подкаталог consul/
       - name: Checkout Consul at tag
         uses: actions/checkout@v4
         with:
@@ -73,14 +71,31 @@ jobs:
           ls -la consul | head -n 50
 
 
-      - name: Apply patches
+      # - name: Apply patches
+      #   working-directory: consul
+      #   run: |
+      #     for p in ../patches_repo/patches/*.patch; do
+      #       echo "Applying $p…"
+      #       git apply -p1 --ignore-space-change --ignore-whitespace "$p"
+      #     done
+      #     rm -rf ../patches_repo/patches/
+
+      - name: Apply unified-diff patches
         working-directory: consul
         run: |
+          set -euxo pipefail
+          shopt -s nullglob
+
           for p in ../patches_repo/patches/*.patch; do
-            echo "Applying $p…"
+            echo "Applying $p..."
             git apply -p1 --ignore-space-change --ignore-whitespace "$p"
           done
+
+          git add -A
+          git commit -m "Apply unified-diff patches"
           rm -rf ../patches_repo/patches/
+
+
 
       # - name: Apply local patches
       #   run: |
