@@ -16,6 +16,9 @@ jobs:
         include:
           - goos: linux
             goarch: amd64
+          - goos: linux
+            goarch: arm64
+
     env:
       PKG_NAME: consul
 
@@ -55,29 +58,10 @@ jobs:
         with:
           path: |
             ~/.cache/go-build
-            ${{ env.GO_CACHE_DIR }}
             $(go env GOPATH)/pkg/mod
-          key: ${{ runner.os }}-go-${{ steps.get-go.outputs.go-version }}-mod-${{ hashFiles('consul/**/go.sum') }}
+          key: ${{ runner.os }}-go-${{ steps.get-go.outputs.go-version }}-${{ matrix.goarch }}-${{ hashFiles('consul/**/go.sum') }}
           restore-keys: |
-            ${{ runner.os }}-go-${{ steps.get-go.outputs.go-version }}-mod-
-
-      - name: List directory structure
-        run: |
-          echo "Workspace: $(pwd)"
-          ls -la
-          echo "== patches_repo/patches/"
-          ls -la patches_repo/patches || true
-          echo "== consul/"
-          ls -la consul | head -n 50
-
-      # - name: Apply patches
-      #   working-directory: consul
-      #   run: |
-      #     for p in ../patches_repo/patches/*.patch; do
-      #       echo "Applying $p…"
-      #       git apply -p1 --ignore-space-change --ignore-whitespace "$p"
-      #     done
-      #     rm -rf ../patches_repo/patches/
+            ${{ runner.os }}-go-${{ steps.get-go.outputs.go-version }}-${{ matrix.goarch }}-
 
       - name: Prepare Go modules
         working-directory: consul
@@ -129,26 +113,27 @@ jobs:
           GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -ldflags="$LDFLAGS" -trimpath -buildvcs=false -o bin/$OUT_NAME ./main.go
           ./bin/$OUT_NAME version
 
-      # Упаковываем zip: имя свободное (мы зададим его в zip_name), внутри — файл 'consul'
-      - name: Package binary as zip (for actions-docker-build)
+      - name: Derive version without "v"
+        id: ver
+        run: |
+          echo "no_v=${{ inputs.tag }}" | sed 's/^v//' >> "$GITHUB_OUTPUT"
+
+      - name: Package binary as zip
         working-directory: consul
         run: |
           set -eux
-          CONSUL_VERSION=${{ inputs.tag }}
-          VER_NO_V="${CONSUL_VERSION#v}"
-          echo "VER_NO_V=$VER_NO_V" >> "$GITHUB_ENV"
-
-          cp "bin/consul_${CONSUL_VERSION}_linux_amd64" bin/consul
+          VER_NO_V="${{ steps.ver.outputs.no_v }}"
+          ARCH=${{ matrix.goarch }}
+          cp "bin/consul_${{ inputs.tag }}_linux_${ARCH}" bin/consul
           chmod +x bin/consul
+          mkdir -p dist/linux/${ARCH}
+          zip -9j "dist/linux/${ARCH}/consul_${VER_NO_V}_linux_${ARCH}.zip" bin/consul
 
-          mkdir -p dist/linux/amd64
-          zip -9j "dist/linux/amd64/consul_${VER_NO_V}_linux_amd64.zip" bin/consul
-
-      - name: Upload zip artifact (will be fetched by the action)
+      - name: Upload zip artifact
         uses: actions/upload-artifact@v4
         with:
-          name: consul_${{ env.VER_NO_V }}_linux_amd64.zip
-          path: consul/dist/linux/amd64/consul_${{ env.VER_NO_V }}_linux_amd64.zip
+          name: consul_${{ steps.ver.outputs.no_v }}_linux_${{ matrix.goarch }}.zip
+          path: consul/dist/linux/${{ matrix.goarch }}/consul_${{ steps.ver.outputs.no_v }}_linux_${{ matrix.goarch }}.zip
 
       - name: Login to GHCR
         uses: docker/login-action@v3
@@ -160,12 +145,11 @@ jobs:
       - name: Docker Build (HashiCorp action)
         uses: hashicorp/actions-docker-build@v2
         with:
-          version: ${{ env.VER_NO_V }}          # 1.21.3 (без 'v')
+          version: ${{ steps.ver.outputs.no_v }}
           target: default
-          arch: amd64
-          zip_artifact_name: consul_${{ env.VER_NO_V }}_linux_amd64.zip   # <-- ВАЖНО: имя ровно как у загруженного артефакта
-          bin_name: consul                                       # <-- ВАЖНО: внутри zip файл называется 'consul'
-          tags: ghcr.io/${{ github.repository }}:${{ env.VER_NO_V }}
-          smoke_test: consul/.github/scripts/verify_docker.sh v${{ env.VER_NO_V }}
+          arch: ${{ matrix.goarch }}
+          zip_artifact_name: consul_${{ steps.ver.outputs.no_v }}_linux_${{ matrix.goarch }}.zip
+          bin_name: consul
+          tags: ghcr.io/${{ github.repository }}:${{ steps.ver.outputs.no_v }}-${{ matrix.goarch }}
+          smoke_test: consul/.github/scripts/verify_docker.sh v${{ steps.ver.outputs.no_v }}
           workdir: consul
-
