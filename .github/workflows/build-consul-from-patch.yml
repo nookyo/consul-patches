@@ -111,7 +111,11 @@ jobs:
           OUT_NAME=consul_${CONSUL_VERSION}_${{ matrix.goos }}_${{ matrix.goarch }}
           mkdir -p bin
           GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -ldflags="$LDFLAGS" -trimpath -buildvcs=false -o bin/$OUT_NAME ./main.go
+
           ./bin/$OUT_NAME version
+          if [ "${{ matrix.goarch }}" = "amd64" ]; then
+            ./bin/$OUT_NAME version
+          fi
 
       - name: Derive version without "v"
         id: ver
