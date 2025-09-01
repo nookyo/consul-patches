@@ -4,6 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
+        default: 'v1.21.3'
         description: 'Git tag to checkout (e.g. v1.21.3)'
         required: true
 
