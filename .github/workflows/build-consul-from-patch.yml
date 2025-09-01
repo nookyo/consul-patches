@@ -72,7 +72,7 @@ jobs:
           echo "== consul/"
           ls -la consul | head -n 50
 
-      - name: Apply local .diff patches
+      - name: Apply local patches
         working-directory: consul
         run: |
           set -euxo pipefail
@@ -80,13 +80,12 @@ jobs:
           git config user.name "GitHub Actions"
           git config core.autocrlf false
 
-          if compgen -G "..patches_repo/patches/*.diff" > /dev/null; then
-            git apply --check ..patches_repo/patches/*.diff
-            git apply --whitespace=fix ..patches_repo/patches/*.diff
-            git add -A
-            git commit -m "Apply local .diff patches from ..patches_repo/patches/"
+          if compgen -G "../patches_repo/patches/*.patch" > /dev/null; then
+            echo "Applying patches:"
+            ls -1 ../patches_repo/patches/*.patch
+            git am --3way --keep-cr ../patches_repo/patches/*.patch
           else
-            echo "No .diff patches found in ..patches_repo/patches; skipping."
+            echo "No .patch files found; skipping."
           fi
 
       - name: Prepare Go modules

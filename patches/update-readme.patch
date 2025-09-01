@@ -1,12 +1,8 @@
 diff --git a/README.md b/README.md
-index 0000000..0000000 100644
 --- a/README.md
 +++ b/README.md
-@@ -1,2 +1,7 @@
--Consul
--License: BUSL-1.1 Docker Pulls Go Report Card
-+# Consul
-+License: BUSL-1.1 · Docker Pulls · Go Report Card
+@@ -1,1 +1,6 @@
+ Consul is a distributed, highly available, and data center aware solution to connect and configure applications across dynamic, distributed infrastructure.
 +
 +> **Note**
 +> This fork is maintained internally at **Your Org** and may include
