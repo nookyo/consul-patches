@@ -20,18 +20,22 @@ jobs:
       PKG_NAME: consul
 
     steps:
+      # 1) Твой репо (с папкой patches/) в корень
       - name: Checkout this repo (with patches)
         uses: actions/checkout@v4
 
+      # 2) Consul в подкаталог consul/
       - name: Checkout Consul at tag
         uses: actions/checkout@v4
         with:
           repository: hashicorp/consul
           ref: ${{ inputs.tag }}
           fetch-depth: 0
+          path: consul
 
       - name: Determine Go version
         id: get-go
+        working-directory: consul
         run: |
           if [ -f .go-version ]; then
             GO_VER=$(cat .go-version)
@@ -52,48 +56,49 @@ jobs:
             ~/.cache/go-build
             ${{ env.GO_CACHE_DIR }}
             $(go env GOPATH)/pkg/mod
-          key: ${{ runner.os }}-go-${{ steps.get-go.outputs.go-version }}-mod-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-go-${{ steps.get-go.outputs.go-version }}-mod-${{ hashFiles('consul/**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-${{ steps.get-go.outputs.go-version }}-mod-
 
       - name: List directory structure
         run: |
-          echo "Current directory: $(pwd)"
-          echo "Contents of the current directory:"
+          echo "Workspace: $(pwd)"
           ls -la
-          echo "Contents of the patches directory:"
-          ls -la patches
+          echo "== patches/"
+          ls -la patches || true
+          echo "== consul/"
+          ls -la consul | head -n 50
 
       - name: Apply local .diff patches
+        working-directory: consul
         run: |
           set -euxo pipefail
-          # мы уже в корне git-репозитория Consul
           git config user.email "actions@users.noreply.github.com"
           git config user.name "GitHub Actions"
           git config core.autocrlf false
 
-          if compgen -G "patches/*.diff" > /dev/null; then
-            # 1) Ранняя проверка совпадения контекста
-            git apply --check patches/*.diff
-            # 2) Применение (с авто-правкой whitespace)
-            git apply --whitespace=fix patches/*.diff
+          if compgen -G "../patches/*.diff" > /dev/null; then
+            git apply --check ../patches/*.diff
+            git apply --whitespace=fix ../patches/*.diff
             git add -A
-            git commit -m "Apply local .diff patches from patches/"
+            git commit -m "Apply local .diff patches from ../patches/"
           else
-            echo "No .diff patches found in patches/; skipping."
+            echo "No .diff patches found in ../patches; skipping."
           fi
+
       - name: Prepare Go modules
-        run: |
-          go mod download
+        working-directory: consul
+        run: go mod download
 
       - name: Setup Node.js 18 and Yarn
         uses: actions/setup-node@v4
         with:
           node-version: "18"
           cache: "yarn"
-          cache-dependency-path: "ui/yarn.lock"
+          cache-dependency-path: "consul/ui/yarn.lock"
 
       - name: Build UI
+        working-directory: consul
         run: |
           set -eux
           CONSUL_VERSION=${{ inputs.tag }}
@@ -112,6 +117,7 @@ jobs:
           mv ui/packages/consul-ui/dist agent/uiserver/
 
       - name: Build Consul binary
+        working-directory: consul
         run: |
           set -eux
           export CGO_ENABLED=0
@@ -128,12 +134,10 @@ jobs:
           OUT_NAME=consul_${CONSUL_VERSION}_${{ matrix.goos }}_${{ matrix.goarch }}
           mkdir -p bin
           GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -ldflags="$LDFLAGS" -trimpath -buildvcs=false -o bin/$OUT_NAME ./main.go
-
-          # верификация
           ./bin/$OUT_NAME version
 
       - name: Upload binary artifact
         uses: actions/upload-artifact@v4
         with:
           name: consul-${{ inputs.tag }}-linux-amd64
-          path: bin/
+          path: consul/bin/
