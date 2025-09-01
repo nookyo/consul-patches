@@ -76,7 +76,6 @@ jobs:
       - name: Apply patches
         working-directory: consul
         run: |
-          cd ${GITHUB_WORKSPACE}
           ls -la patches_repo/patches || true
           for p in ../patches_repo/patches/*.patch; do
             echo "Applying $p…"
