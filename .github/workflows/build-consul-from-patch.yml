@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        default: "v1.21.3"
+        default: "1.21.3"
         description: "Git tag to checkout (e.g. v1.21.3)"
         required: true
 
@@ -130,8 +130,18 @@ jobs:
           GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -ldflags="$LDFLAGS" -trimpath -buildvcs=false -o bin/$OUT_NAME ./main.go
           ./bin/$OUT_NAME version
 
-      - name: Upload binary artifact
+      - name: Package binary as zip (for actions-docker-build)
+        working-directory: consul
+        run: |
+          set -eux
+          CONSUL_VERSION=${{ inputs.tag }}
+          VER_NO_V="${CONSUL_VERSION#v}"
+          echo "VER_NO_V=$VER_NO_V" >> "$GITHUB_ENV"
+          cp "bin/consul_${CONSUL_VERSION}_linux_amd64" bin/consul
+          zip -j "consul_${VER_NO_V}_linux_amd64.zip" bin/consul
+
+      - name: Upload zip artifact for docker build
         uses: actions/upload-artifact@v4
         with:
-          name: consul-${{ inputs.tag }}-linux-amd64
-          path: consul/bin/
+          name: consul_${{ env.VER_NO_V }}_linux_amd64.zip
+          path: consul/consul_${{ env.VER_NO_V }}_linux_amd64.zip
