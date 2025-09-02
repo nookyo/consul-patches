@@ -53,8 +53,11 @@ jobs:
 
       - name: Apply patches
         run: |
+          ls -la
+          ls -la patches_repo/patches
+          ls -la consul
           cd consul
-          for p in ./patches_repo/patches/*.patch; do
+          for p in ../patches_repo/patches/*.patch; do
             echo "Applying $p…"
             git apply -p1 --ignore-space-change --ignore-whitespace "$p"
           done
