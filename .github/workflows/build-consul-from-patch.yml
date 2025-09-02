@@ -117,8 +117,9 @@ jobs:
 
       - name: Derive version without "v"
         id: ver
-        run: |
-          echo "no_v=${{ inputs.tag }}" | sed 's/^v//' >> "$GITHUB_OUTPUT"
+        env:
+          TAG: ${{ inputs.tag }}
+        run: echo "no_v=${TAG#v}" >> $GITHUB_OUTPUT
 
       - name: Package binary as zip
         working-directory: consul
