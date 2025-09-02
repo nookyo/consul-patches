@@ -167,7 +167,6 @@ jobs:
           tags: ghcr.io/${{ github.repository }}:${{ steps.ver.outputs.no_v }}-${{ matrix.goarch }}
           smoke_test: consul/.github/scripts/verify_docker.sh ${{ inputs.tag }}
           workdir: consul
-          extra_build_args: --push
           push_auto_dev_tags: true
 
       - name: Push image to GHCR
