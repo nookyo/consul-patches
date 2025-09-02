@@ -127,11 +127,14 @@ jobs:
             ./bin/$OUT_NAME version
           fi
 
-      - name: Derive version without "v"
+      - name: Derive version and repo lc
         id: ver
+        env:
+          TAG: ${{ inputs.tag }}
+          REPO: ${{ github.repository }}
         run: |
-          echo "no_v=${TAG#v}" >> $GITHUB_OUTPUT
-          echo "repo=$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+          echo "no_v=${TAG#v}" >> "$GITHUB_OUTPUT"
+          echo "REPO_LC=${REPO,,}" >> "$GITHUB_ENV"
 
       - name: Package binary as zip
         working-directory: consul
@@ -165,7 +168,7 @@ jobs:
           arch: ${{ matrix.goarch }}
           zip_artifact_name: consul_${{ steps.ver.outputs.no_v }}_linux_${{ matrix.goarch }}.zip
           bin_name: consul
-          tags: ghcr.io/${{ steps.ver.outputs.repo }}:${{ steps.ver.outputs.no_v }}-${{ matrix.goarch }}
+          tags: ghcr.io/${{ env.REPO_LC }}:${{ steps.ver.outputs.no_v }}-${{ matrix.goarch }}
           smoke_test: consul/.github/scripts/verify_docker.sh ${{ inputs.tag }}
           workdir: consul
           push_auto_dev_tags: true
@@ -173,4 +176,4 @@ jobs:
       - name: Push image to GHCR
         run: |
           set -euo pipefail
-          docker push ghcr.io/${{ steps.ver.outputs.repo }}:${{ steps.ver.outputs.no_v }}-${{ matrix.goarch }}
+          docker push ghcr.io/${{ env.REPO_LC }}:${{ steps.ver.outputs.no_v }}-${{ matrix.goarch }}
