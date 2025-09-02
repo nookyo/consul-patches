@@ -7,6 +7,9 @@ on:
         default: "v1.21.3"
         description: "Git tag to checkout (e.g. v1.21.3)"
         required: true
+permissions:
+  contents: read
+  packages: write
 
 jobs:
   build:
@@ -166,3 +169,8 @@ jobs:
           workdir: consul
           extra_build_args: --push
           push_auto_dev_tags: true
+
+      - name: Push image to GHCR
+        run: |
+              set -euo pipefail
+              docker push ghcr.io/${{ github.repository }}:${{ steps.ver.outputs.no_v }}-${{ matrix.goarch }}
