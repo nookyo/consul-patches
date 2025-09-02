@@ -51,6 +51,14 @@ jobs:
         with:
           go-version: ${{ steps.get-go.outputs.go-version }}
 
+      - name: Apply patches
+        run: |
+          cd ${GITHUB_WORKSPACE}
+          for p in ./patches_repo/patches/*.patch; do
+            echo "Applying $p…"
+            git apply -p1 --ignore-space-change --ignore-whitespace "$p"
+          done
+
       - name: Cache Go modules and build cache
         uses: actions/cache@v3
         with:
