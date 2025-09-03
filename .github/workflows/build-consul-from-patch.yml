@@ -231,3 +231,56 @@ jobs:
             docker tag "$SRC" "$DST"
             docker push "$DST"
           done
+  manifest:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Compute repo and version
+        id: meta
+        env:
+          REPO: ${{ github.repository }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          echo "repo_lc=${REPO,,}" >> "$GITHUB_OUTPUT"
+          echo "no_v=${TAG#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Buildx (for imagetools)
+        uses: docker/setup-buildx-action@v3
+
+      - name: Create multi-arch manifest (primary)
+        run: |
+          set -eux
+          REPO="ghcr.io/${{ steps.meta.outputs.repo_lc }}"
+          TAG="${{ steps.meta.outputs.no_v }}"
+          docker buildx imagetools create \
+            -t "${REPO}:${TAG}" \
+            "${REPO}:${TAG}-amd64" \
+            "${REPO}:${TAG}-arm64"
+
+      - name: Create extra multi-arch tags
+        if: ${{ inputs.extra_tags != '' }}
+        run: |
+          set -eux
+          REPO="ghcr.io/${{ steps.meta.outputs.repo_lc }}"
+          SRC_TAG="${{ steps.meta.outputs.no_v }}"
+          IFS=',' read -ra TAGS <<< "${{ inputs.extra_tags }}"
+          for t in "${TAGS[@]}"; do
+            tag="$(echo "$t" | xargs)"
+            [ -z "$tag" ] && continue
+            docker buildx imagetools create \
+              -t "${REPO}:${tag}" \
+              "${REPO}:${SRC_TAG}-amd64" \
+              "${REPO}:${SRC_TAG}-arm64"
+          done
+
+      - name: Inspect manifest (optional)
+        run: |
+          docker buildx imagetools inspect ghcr.io/${{ steps.meta.outputs.repo_lc }}:${{ steps.meta.outputs.no_v }}
