@@ -1,0 +1,197 @@
+name: build-consul-multiarch
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Git tag of hashicorp/consul (e.g. v1.21.3)"
+        required: true
+        default: "v1.21.3"
+      extra_tags:
+        description: "Comma-separated extra tags for the multi-arch image (e.g. latest, stable)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  BIN_NAME: consul
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout this repo (patches)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          path: patches_repo
+          persist-credentials: false
+
+      - name: Checkout Consul at tag
+        uses: actions/checkout@v4
+        with:
+          repository: hashicorp/consul
+          ref: ${{ inputs.tag }}
+          fetch-depth: 0
+          path: consul
+          persist-credentials: false
+
+      - name: Determine Go version
+        id: get-go
+        working-directory: consul
+        run: |
+          if [ -f .go-version ]; then
+            echo "go-version=$(cat .go-version)" >> "$GITHUB_OUTPUT"
+          else
+            echo "go-version=1.21.6" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ steps.get-go.outputs.go-version }}
+
+      - name: Apply patches (if any)
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          cd consul
+          PATCH_DIR=../patches_repo/patches
+          files=("$PATCH_DIR"/*.patch)
+          if (( ${#files[@]} )); then
+            for p in "${files[@]}"; do
+              echo "Applying $p…"
+              git apply -p1 --ignore-space-change --ignore-whitespace "$p"
+            done
+          else
+            echo "No patches found in $PATCH_DIR — skipping."
+          fi
+
+      - name: Cache Go modules/build
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/go-build
+            $(go env GOPATH)/pkg/mod
+          key: ${{ runner.os }}-go-${{ steps.get-go.outputs.go-version }}-${{ hashFiles('consul/**/go.sum') }}
+
+      - name: Prepare Go modules
+        working-directory: consul
+        run: go mod download
+
+      - name: Setup Node.js 18 + Yarn cache
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+          cache: "yarn"
+          cache-dependency-path: "consul/ui/yarn.lock"
+
+      - name: (Optional) enable corepack
+        run: corepack enable || true
+
+      - name: Build UI
+        working-directory: consul
+        shell: bash
+        run: |
+          set -eux
+          CONSUL_VERSION=${{ inputs.tag }}
+          if [ -x build-support/scripts/build-date.sh ]; then
+            CONSUL_DATE=$(./build-support/scripts/build-date.sh)
+          else
+            CONSUL_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          fi
+          GIT_COMMIT=$(git rev-parse --short=8 HEAD)
+          echo "Building UI for $CONSUL_VERSION ($GIT_COMMIT @ $CONSUL_DATE)"
+          cd ui
+          yarn install --frozen-lockfile
+          make
+          cd ..
+          rm -rf agent/uiserver/dist
+          mv ui/packages/consul-ui/dist agent/uiserver/
+
+      - name: Build binaries (amd64 + arm64) into dist/
+        working-directory: consul
+        shell: bash
+        run: |
+          set -eux
+          CONSUL_VERSION=${{ inputs.tag }}
+          if [ -x build-support/scripts/build-date.sh ]; then
+            CONSUL_DATE=$(./build-support/scripts/build-date.sh)
+          else
+            CONSUL_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          fi
+          GIT_COMMIT=$(git rev-parse --short=8 HEAD)
+          LDFLAGS="-X github.com/hashicorp/consul/version.GitCommit=${GIT_COMMIT} \
+          -X github.com/hashicorp/consul/version.GitDescribe=${CONSUL_VERSION} \
+          -X github.com/hashicorp/consul/version.BuildDate=${CONSUL_DATE}"
+
+          export CGO_ENABLED=0
+
+          # amd64
+          mkdir -p dist/linux/amd64
+          GOOS=linux GOARCH=amd64 go build -ldflags="$LDFLAGS" -trimpath -buildvcs=false -o dist/linux/amd64/${{ env.BIN_NAME }} ./main.go
+
+          # arm64
+          mkdir -p dist/linux/arm64
+          GOOS=linux GOARCH=arm64 go build -ldflags="$LDFLAGS" -trimpath -buildvcs=false -o dist/linux/arm64/${{ env.BIN_NAME }} ./main.go
+
+          chmod +x dist/linux/*/${{ env.BIN_NAME }}
+
+      - name: Derive version/repo
+        id: ver
+        env:
+          TAG: ${{ inputs.tag }}
+          REPO: ${{ github.repository }}
+        run: |
+          echo "no_v=${TAG#v}" >> "$GITHUB_OUTPUT"
+          echo "repo_lc=${REPO,,}" >> "$GITHUB_OUTPUT"
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup QEMU (for multi-arch buildx)
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm,arm64
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build & Push multi-arch image via Dockerfile (target=default)
+        working-directory: consul
+        run: |
+          set -eux
+          IMAGE="ghcr.io/${{ steps.ver.outputs.repo_lc }}"
+          VER="${{ steps.ver.outputs.no_v }}"
+          docker buildx build \
+            --file Dockerfile \
+            --target default \
+            --platform linux/amd64,linux/arm64 \
+            --build-arg BIN_NAME=${{ env.BIN_NAME }} \
+            --build-arg PRODUCT_VERSION="${VER}" \
+            --tag "${IMAGE}:${VER}" \
+            --provenance=false \
+            --push \
+            .
+
+      - name: Apply extra tags (multi-arch)
+        if: ${{ inputs.extra_tags != '' }}
+        run: |
+          set -euo pipefail
+          IMAGE="ghcr.io/${{ steps.ver.outputs.repo_lc }}"
+          VER="${{ steps.ver.outputs.no_v }}"
+          IFS=',' read -ra TAGS <<< "${{ inputs.extra_tags }}"
+          for raw in "${TAGS[@]}"; do
+            tag="$(echo "$raw" | xargs)"
+            [ -z "$tag" ] && continue
+            echo "Retagging ${IMAGE}:${VER} -> ${IMAGE}:${tag}"
+            docker buildx imagetools create -t "${IMAGE}:${tag}" "${IMAGE}:${VER}"
+          done
