@@ -194,10 +194,10 @@ jobs:
           workdir: consul
           push_auto_dev_tags: true
 
-      - name: Push image to GHCR
-        run: |
-          set -euo pipefail
-          docker push ghcr.io/${{ env.REPO_LC }}:${{ steps.ver.outputs.no_v }}-${{ matrix.goarch }}
+      # - name: Push image to GHCR
+      #   run: |
+      #     set -euo pipefail
+      #     docker push ghcr.io/${{ env.REPO_LC }}:${{ steps.ver.outputs.no_v }}-${{ matrix.goarch }}
 
       # - name: Compute extra tags
       #   id: extra
