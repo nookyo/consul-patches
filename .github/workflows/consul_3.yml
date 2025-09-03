@@ -217,11 +217,16 @@ jobs:
         shell: bash
         working-directory: consul
         run: |
-          set -eux
-          mkdir -p dist/linux/amd64 dist/linux/arm64
-          cp ../dl/consul/dist/linux/amd64/consul dist/linux/amd64/consul
-          cp ../dl/consul/dist/linux/arm64/consul dist/linux/arm64/consul
-          chmod +x dist/linux/*/consul
+            set -eux
+            ROOT="../dl"
+            mkdir -p dist/linux/amd64 dist/linux/arm64
+            src_amd64=$(find "$ROOT" -type f -path "*/dist/linux/amd64/consul" | head -n1)
+            src_arm64=$(find "$ROOT" -type f -path "*/dist/linux/arm64/consul" | head -n1)
+            [ -n "$src_amd64" ] || { echo "amd64 binary not found in $ROOT"; ls -R "$ROOT"; exit 1; }
+            [ -n "$src_arm64" ] || { echo "arm64 binary not found in $ROOT"; ls -R "$ROOT"; exit 1; }
+            cp "$src_amd64" dist/linux/amd64/consul
+            cp "$src_arm64" dist/linux/arm64/consul
+            chmod +x dist/linux/*/consul
 
       - name: Login to GHCR
         uses: docker/login-action@v3
