@@ -27,7 +27,6 @@ jobs:
 
           - goos: linux
             goarch: arm64
-            runs_on: ubuntu-latest
             qemu: true
 
     runs-on: ubuntu-latest
