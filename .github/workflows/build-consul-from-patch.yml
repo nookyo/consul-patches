@@ -13,15 +13,25 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
     strategy:
       matrix:
         include:
           - goos: linux
             goarch: amd64
+            runs_on: ubuntu-latest
+            qemu: false
+
           - goos: linux
             goarch: arm64
+            runs_on: ubuntu-latest # при наличии arm64-хостов можно указать свой label
+            qemu: true # включаем QEMU только для ARM
 
+          - goos: linux
+            goarch: arm
+            goarm: "7"
+            runs_on: ubuntu-latest
+            qemu: true
+    runs-on: ${{ matrix.runs_on }}
     env:
       PKG_NAME: consul
       OWNER: ${{ github.repository_owner }}
