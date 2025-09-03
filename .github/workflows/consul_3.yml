@@ -89,12 +89,32 @@ jobs:
             $(go env GOPATH)/pkg/mod
           key: ${{ runner.os }}-go-${{ steps.go.outputs.version }}-${{ hashFiles('consul/**/go.sum') }}
 
-      - name: Setup Node.js 18 + Yarn cache
+      - name: Detect Node version for UI
+        id: node
+        shell: bash
+        run: |
+          set -euo pipefail
+          # piority .nvmrc → .node-version → package.json engines.node → fallback=18
+          if [ -f consul/ui/.nvmrc ]; then
+            ver=$(tr -d ' \t\r\n' < consul/ui/.nvmrc)
+          elif [ -f consul/ui/.node-version ]; then
+            ver=$(tr -d ' \t\r\n' < consul/ui/.node-version)
+          elif [ -f consul/ui/package.json ]; then
+            engines_line=$(grep -A3 '"engines"' consul/ui/package.json || true)
+            node_req=$(echo "$engines_line" | grep -E '"node"\s*:' | sed -E 's/.*"node"\s*:\s*"([^"]+)".*/\1/')
+            major=$(echo "$node_req" | sed -E 's/[^0-9.]+/ /g' | awk -F. '{print $1}' | awk '{print $1}')
+            if [ -n "${major:-}" ]; then ver="$major"; else ver="18"; fi
+          else
+            ver="18"
+          fi
+          echo "version=$ver" >> "$GITHUB_OUTPUT"
+
+      - name: Setup Node.js (auto-detected)
         uses: actions/setup-node@v4
         with:
-          node-version: "18"
-          cache: "yarn"
-          cache-dependency-path: "consul/ui/yarn.lock"
+          node-version: ${{ steps.node.outputs.version }}
+          cache: yarn
+          cache-dependency-path: consul/ui/yarn.lock
 
       - name: Build UI
         working-directory: consul
