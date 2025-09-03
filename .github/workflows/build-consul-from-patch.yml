@@ -199,38 +199,38 @@ jobs:
           set -euo pipefail
           docker push ghcr.io/${{ env.REPO_LC }}:${{ steps.ver.outputs.no_v }}-${{ matrix.goarch }}
 
-      - name: Compute extra tags
-        id: extra
-        env:
-          EXTRA_TAGS_INPUT: ${{ inputs.extra_tags }}
-          REPO_LC: ${{ env.REPO_LC }}
-        run: |
-          set -euo pipefail
-          INPUT="${EXTRA_TAGS_INPUT}"
-          if [ -z "$INPUT" ]; then
-            echo "list=" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          IFS=',' read -ra TAGS <<< "$INPUT"
-          OUT=""
-          for t in "${TAGS[@]}"; do
-            tag="$(echo "$t" | xargs)"        # trim
-            [ -z "$tag" ] && continue
-            safe_tag="$(echo "$tag" | tr ' /' '__')"   # лёгкая санитизация
-            OUT="$OUT ghcr.io/${REPO_LC}:${safe_tag}-${{ matrix.goarch }}"
-          done
-          echo "list=$OUT" >> "$GITHUB_OUTPUT"
+      # - name: Compute extra tags
+      #   id: extra
+      #   env:
+      #     EXTRA_TAGS_INPUT: ${{ inputs.extra_tags }}
+      #     REPO_LC: ${{ env.REPO_LC }}
+      #   run: |
+      #     set -euo pipefail
+      #     INPUT="${EXTRA_TAGS_INPUT}"
+      #     if [ -z "$INPUT" ]; then
+      #       echo "list=" >> "$GITHUB_OUTPUT"
+      #       exit 0
+      #     fi
+      #     IFS=',' read -ra TAGS <<< "$INPUT"
+      #     OUT=""
+      #     for t in "${TAGS[@]}"; do
+      #       tag="$(echo "$t" | xargs)"        # trim
+      #       [ -z "$tag" ] && continue
+      #       safe_tag="$(echo "$tag" | tr ' /' '__')"
+      #       OUT="$OUT ghcr.io/${REPO_LC}:${safe_tag}-${{ matrix.goarch }}"
+      #     done
+      #     echo "list=$OUT" >> "$GITHUB_OUTPUT"
 
-      - name: Tag & push extra image tags
-        if: ${{ steps.extra.outputs.list != '' }}
-        run: |
-          set -euo pipefail
-          SRC="ghcr.io/${{ env.REPO_LC }}:${{ steps.ver.outputs.no_v }}-${{ matrix.goarch }}"
-          for DST in ${{ steps.extra.outputs.list }}; do
-            echo "Tagging $SRC -> $DST"
-            docker tag "$SRC" "$DST"
-            docker push "$DST"
-          done
+      # - name: Tag & push extra image tags
+      #   if: ${{ steps.extra.outputs.list != '' }}
+      #   run: |
+      #     set -euo pipefail
+      #     SRC="ghcr.io/${{ env.REPO_LC }}:${{ steps.ver.outputs.no_v }}-${{ matrix.goarch }}"
+      #     for DST in ${{ steps.extra.outputs.list }}; do
+      #       echo "Tagging $SRC -> $DST"
+      #       docker tag "$SRC" "$DST"
+      #       docker push "$DST"
+      #     done
   manifest:
     needs: build
     runs-on: ubuntu-latest
