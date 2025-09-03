@@ -19,6 +19,9 @@ jobs:
         include:
           - goos: linux
             goarch: amd64
+          - goos: linux
+            goarch: arm64
+          - goos: linux
 
     env:
       PKG_NAME: consul
