@@ -168,7 +168,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
     outputs:
-      ver: ${{ steps.ver.outputs.no_v }}
+      ver_no_v: ${{ steps.ver.outputs.no_v }}
 
     steps:
       - name: Checkout Consul @ tag
@@ -302,7 +302,7 @@ jobs:
             Automated Consul release from source with multi-arch Docker images.
 
             Docker images:
-            - default: `ghcr.io/${{ github.repository }}:${{ inputs.tag }} (=${{ needs.docker.outputs.ver }})`
+            - default: `ghcr.io/${{ github.repository }}:${{ inputs.tag }} (=${{ needs.docker.outputs.ver_no_v }})`
             - ubi:     `ghcr.io/${{ github.repository }}:${{ inputs.tag }}-ubi` (if enabled)
 
             Artifacts:
