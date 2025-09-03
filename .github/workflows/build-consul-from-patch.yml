@@ -42,14 +42,16 @@ jobs:
         with:
           fetch-depth: 0
           path: patches_repo
+          persist-credentials: false
 
       - name: Checkout Consul at tag
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: hashicorp/consul
           ref: ${{ inputs.tag }}
           fetch-depth: 0
           path: consul
+          persist-credentials: false
 
       - name: Determine Go version
         id: get-go
@@ -63,7 +65,7 @@ jobs:
           echo "go-version=$GO_VER" >> "$GITHUB_OUTPUT"
 
       - name: Setup Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
           go-version: ${{ steps.get-go.outputs.go-version }}
 
