@@ -131,9 +131,11 @@ jobs:
           mkdir -p bin
           GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -ldflags="$LDFLAGS" -trimpath -buildvcs=false -o bin/$OUT_NAME ./main.go
 
-          ./bin/$OUT_NAME version
           if [ "${{ matrix.goarch }}" = "amd64" ]; then
             ./bin/$OUT_NAME version
+          else
+            echo "Skipping run of ${OUT_NAME} (cross-compiled for ${{ matrix.goarch }} on $(uname -m))"
+            file bin/$OUT_NAME || true
           fi
 
       - name: Derive version and repo lc
@@ -168,6 +170,12 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up QEMU (ARM only)
+        if: ${{ matrix.qemu }}
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm,arm64
 
       - name: Docker Build (HashiCorp action)
         uses: hashicorp/actions-docker-build@v2
