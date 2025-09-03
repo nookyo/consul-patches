@@ -18,8 +18,8 @@ on:
         default: true
 
 permissions:
-  contents: write   # create GitHub Release & upload assets
-  packages: write   # push images to GHCR
+  contents: write # create GitHub Release & upload assets
+  packages: write # push images to GHCR
 
 env:
   BIN_NAME: consul
@@ -167,6 +167,8 @@ jobs:
     name: Build & push multi-arch Docker images (default [+UBI])
     runs-on: ubuntu-latest
     needs: build
+    outputs:
+      ver: ${{ steps.ver.outputs.no_v }}
 
     steps:
       - name: Checkout Consul @ tag
@@ -300,7 +302,7 @@ jobs:
             Automated Consul release from source with multi-arch Docker images.
 
             Docker images:
-            - default: `ghcr.io/${{ github.repository }}:${{ inputs.tag }} (=${{ steps.ver.outputs.no_v }})`
+            - default: `ghcr.io/${{ github.repository }}:${{ inputs.tag }} (=${{ needs.docker.outputs.ver }})`
             - ubi:     `ghcr.io/${{ github.repository }}:${{ inputs.tag }}-ubi` (if enabled)
 
             Artifacts:
