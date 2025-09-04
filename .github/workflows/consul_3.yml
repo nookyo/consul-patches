@@ -12,11 +12,16 @@ on:
         description: "Comma-separated extra tags for the multi-arch image (e.g. latest, stable)"
         required: false
         default: ""
+      docker_image_name:
+        description: "Override Docker image name (default: ghcr.io/github.repository) lowercased"
+        required: false
+        default: ""
       build_ubi:
         description: "Also build UBI variant (target=ubi)"
         type: boolean
         required: false
         default: false
+
 
 permissions:
   contents: write # create GitHub Release & upload assets
@@ -52,7 +57,13 @@ jobs:
         run: |
           TAG="${{ inputs.tag }}"
           echo "no_v=${TAG#v}" >> "$GITHUB_OUTPUT"
-          echo "repo_lc=${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+          VAL="${{ inputs.docker_image_name }}"
+
+          if [ -z "$VAL" ]; then
+            echo "repo_lc=${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+          else
+            echo "repo_lc=${{ inputs.docker_image_name }}" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Detect Go version
         id: go
@@ -206,6 +217,7 @@ jobs:
         run: |
           TAG="${{ inputs.tag }}"
           echo "no_v=${TAG#v}" >> "$GITHUB_OUTPUT"
+
           echo "repo_lc=${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
 
       - name: Download binaries from build job
