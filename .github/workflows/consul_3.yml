@@ -67,44 +67,20 @@ jobs:
           TAG="${{ inputs.tag }}"
           echo "no_v=${TAG#v}" >> "$GITHUB_OUTPUT"
 
-          # --- owner from env, repo name from input (name-only). If empty -> use current repo name.
-          RAW_NAME="${{ inputs.docker_image_name }}"
           OWNER="${GITHUB_REPOSITORY_OWNER,,}"
+          RAW_NAME="${{ inputs.docker_image_name }}"
 
           if [ -z "$RAW_NAME" ]; then
-            # take repo name part of current repository
-            CUR_REPO="${GITHUB_REPOSITORY##*/}"
-            NAME_ONLY="$(echo "$CUR_REPO" | tr '[:upper:]' '[:lower:]')"
+            IMG_PATH="${GITHUB_REPOSITORY,,}"
           else
-            # if user typed org/name, drop org; we always use current OWNER
             NAME_ONLY="$(echo "$RAW_NAME" | awk -F/ '{print $NF}' | tr '[:upper:]' '[:lower:]')"
+            IMG_PATH="${OWNER}/${NAME_ONLY}"
           fi
 
-          # optional: basic validation of the repo name
-          if ! [[ "$NAME_ONLY" =~ ^[a-z0-9._-]+$ ]]; then
-            echo "Invalid docker_image_name: '$NAME_ONLY' (allowed: a-z 0-9 . _ -)"; exit 1
-          fi
-
-          IMG_PATH="${OWNER}/${NAME_ONLY}"
           echo "repo_lc=${IMG_PATH}" >> "$GITHUB_OUTPUT"
           echo "image=ghcr.io/${IMG_PATH}" >> "$GITHUB_OUTPUT"
 
-          # --- normalize extra tags (split, trim, dedup)
-          RAW_TAGS="${{ inputs.docker_extra_tags }}"
-          NORM_TAGS=""
-          declare -A SEEN=()
-          IFS=',' read -ra PARTS <<< "$RAW_TAGS"
-          for p in "${PARTS[@]}"; do
-            t="$(echo "$p" | xargs)"
-            [ -z "$t" ] && continue
-            if [[ -z "${SEEN[$t]+x}" ]]; then
-              SEEN[$t]=1
-              if [ -z "$NORM_TAGS" ]; then NORM_TAGS="$t"; else NORM_TAGS="$NORM_TAGS,$t"; fi
-            fi
-          done
-          echo "extra_tags=${NORM_TAGS}" >> "$GITHUB_OUTPUT"
-
-          # --- pass UBI flag (string)
+          echo "extra_tags=${{ inputs.docker_extra_tags }}" >> "$GITHUB_OUTPUT"
           echo "ubi=${{ inputs.build_ubi }}" >> "$GITHUB_OUTPUT"
 
       - name: Detect Go version
