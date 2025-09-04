@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Git tag of hashicorp/consul to release (e.g. v1.21.4)"
+        description: "Git tag of hashicorp/consul to release (e.g. v1.21.3)"
         required: true
-        default: "v1.21.4"
+        default: "v1.21.3"
       docker_extra_tags:
         description: "Comma-separated extra tags for the multi-arch image (e.g. latest, stable)"
         required: false
