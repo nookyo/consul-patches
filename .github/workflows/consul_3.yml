@@ -16,7 +16,7 @@ on:
         description: "Also build UBI variant (target=ubi)"
         type: boolean
         required: false
-        default: true
+        default: false
 
 permissions:
   contents: write # create GitHub Release & upload assets
