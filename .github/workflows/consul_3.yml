@@ -13,7 +13,7 @@ on:
         required: false
         default: ""
       docker_image_name:
-        description: "Override Docker image name (default: ghcr.io/<owner>/<repo>)"
+        description: "Override Docker image REPO name only (owner is auto-injected). Leave empty to use current repo name."
         required: false
         default: ""
       build_ubi:
@@ -67,17 +67,25 @@ jobs:
           TAG="${{ inputs.tag }}"
           echo "no_v=${TAG#v}" >> "$GITHUB_OUTPUT"
 
-          # --- image repo path (owner/name), normalized from docker_image_name
+          # --- owner from env, repo name from input (name-only). If empty -> use current repo name.
           RAW_NAME="${{ inputs.docker_image_name }}"
+          OWNER="${GITHUB_REPOSITORY_OWNER,,}"
+
           if [ -z "$RAW_NAME" ]; then
-            IMG_PATH="${GITHUB_REPOSITORY,,}"   # <owner>/<repo>
+            # take repo name part of current repository
+            CUR_REPO="${GITHUB_REPOSITORY##*/}"
+            NAME_ONLY="$(echo "$CUR_REPO" | tr '[:upper:]' '[:lower:]')"
           else
-            if [[ "$RAW_NAME" == */* ]]; then
-              IMG_PATH="${RAW_NAME,,}"          # assume <owner>/<name>
-            else
-              IMG_PATH="${GITHUB_REPOSITORY_OWNER,,}/$(echo "$RAW_NAME" | tr '[:upper:]' '[:lower:]')"
-            fi
+            # if user typed org/name, drop org; we always use current OWNER
+            NAME_ONLY="$(echo "$RAW_NAME" | awk -F/ '{print $NF}' | tr '[:upper:]' '[:lower:]')"
           fi
+
+          # optional: basic validation of the repo name
+          if ! [[ "$NAME_ONLY" =~ ^[a-z0-9._-]+$ ]]; then
+            echo "Invalid docker_image_name: '$NAME_ONLY' (allowed: a-z 0-9 . _ -)"; exit 1
+          fi
+
+          IMG_PATH="${OWNER}/${NAME_ONLY}"
           echo "repo_lc=${IMG_PATH}" >> "$GITHUB_OUTPUT"
           echo "image=ghcr.io/${IMG_PATH}" >> "$GITHUB_OUTPUT"
 
@@ -198,10 +206,8 @@ jobs:
           LDFLAGS="-X github.com/hashicorp/consul/version.GitCommit=${GIT_COMMIT} \
                    -X github.com/hashicorp/consul/version.GitDescribe=${CONSUL_VERSION} \
                    -X github.com/hashicorp/consul/version.BuildDate=${CONSUL_DATE}"
-          # amd64
           mkdir -p dist/linux/amd64
           GOOS=linux GOARCH=amd64 go build -ldflags="$LDFLAGS" -trimpath -buildvcs=false -o dist/linux/amd64/${{ env.BIN_NAME }} ./main.go
-          # arm64
           mkdir -p dist/linux/arm64
           GOOS=linux GOARCH=arm64 go build -ldflags="$LDFLAGS" -trimpath -buildvcs=false -o dist/linux/arm64/${{ env.BIN_NAME }} ./main.go
           chmod +x dist/linux/*/${{ env.BIN_NAME }}
