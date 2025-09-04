@@ -1,4 +1,5 @@
 name: release-consul
+run-name: "Consul Release ${{ inputs.tag }} (UBI=${{ inputs.build_ubi }}) by @${{ github.actor }}"
 
 on:
   workflow_dispatch:
