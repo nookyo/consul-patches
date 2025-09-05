@@ -218,7 +218,7 @@ jobs:
 
     steps:
       - name: Checkout Consul @ tag
-        uses: actions/checkout@5
+        uses: actions/checkout@v5
         with:
           repository: hashicorp/consul
           ref: ${{ inputs.tag }}
