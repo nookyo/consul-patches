@@ -12,15 +12,19 @@ on:
         description: "Comma-separated extra tags for the multi-arch image (e.g. latest, stable)"
         required: false
         default: ""
+      docker_image_name:
+        description: "Override Docker image REPO name only (owner is auto-injected). Leave empty to use current repo name."
+        required: false
+        default: ""
       build_ubi:
         description: "Also build UBI variant (target=ubi)"
         type: boolean
         required: false
-        default: true
+        default: false
 
 permissions:
-  contents: write # create GitHub Release & upload assets
-  packages: write # push images to GHCR
+  contents: write   # create GitHub Release & upload assets
+  packages: write   # push images to GHCR
 
 env:
   BIN_NAME: consul
@@ -29,9 +33,15 @@ jobs:
   build:
     name: Build UI + binaries (amd64/arm64) and pack artifacts
     runs-on: ubuntu-latest
+    outputs:
+      no_v:       ${{ steps.vars.outputs.no_v }}
+      repo_lc:    ${{ steps.vars.outputs.repo_lc }}
+      image:      ${{ steps.vars.outputs.image }}
+      extra_tags: ${{ steps.vars.outputs.extra_tags }}
+      ubi:        ${{ steps.vars.outputs.ubi }}
 
     steps:
-      - name: Checkout patches repo (optional)
+      - name: Checkout patches repo
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -47,12 +57,31 @@ jobs:
           path: consul
           persist-credentials: false
 
-      - name: Derive version (strip leading 'v') and repo (lowercase)
-        id: ver
+      - name: Derive release variables (version, image, tags)
+        id: vars
+        shell: bash
         run: |
+          set -euo pipefail
+
+          # --- version without leading 'v'
           TAG="${{ inputs.tag }}"
           echo "no_v=${TAG#v}" >> "$GITHUB_OUTPUT"
-          echo "repo_lc=${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+
+          OWNER="${GITHUB_REPOSITORY_OWNER,,}"
+          RAW_NAME="${{ inputs.docker_image_name }}"
+
+          if [ -z "$RAW_NAME" ]; then
+            IMG_PATH="${GITHUB_REPOSITORY,,}"
+          else
+            NAME_ONLY="$(echo "$RAW_NAME" | awk -F/ '{print $NF}' | tr '[:upper:]' '[:lower:]')"
+            IMG_PATH="${OWNER}/${NAME_ONLY}"
+          fi
+
+          echo "repo_lc=${IMG_PATH}" >> "$GITHUB_OUTPUT"
+          echo "image=ghcr.io/${IMG_PATH}" >> "$GITHUB_OUTPUT"
+
+          echo "extra_tags=${{ inputs.docker_extra_tags }}" >> "$GITHUB_OUTPUT"
+          echo "ubi=${{ inputs.build_ubi }}" >> "$GITHUB_OUTPUT"
 
       - name: Detect Go version
         id: go
@@ -95,7 +124,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          # piority .nvmrc → .node-version → package.json engines.node → fallback=18
+          # priority: .nvmrc → .node-version → package.json engines.node → fallback=18
           if [ -f consul/ui/.nvmrc ]; then
             ver=$(tr -d ' \t\r\n' < consul/ui/.nvmrc)
           elif [ -f consul/ui/.node-version ]; then
@@ -153,10 +182,8 @@ jobs:
           LDFLAGS="-X github.com/hashicorp/consul/version.GitCommit=${GIT_COMMIT} \
                    -X github.com/hashicorp/consul/version.GitDescribe=${CONSUL_VERSION} \
                    -X github.com/hashicorp/consul/version.BuildDate=${CONSUL_DATE}"
-          # amd64
           mkdir -p dist/linux/amd64
           GOOS=linux GOARCH=amd64 go build -ldflags="$LDFLAGS" -trimpath -buildvcs=false -o dist/linux/amd64/${{ env.BIN_NAME }} ./main.go
-          # arm64
           mkdir -p dist/linux/arm64
           GOOS=linux GOARCH=arm64 go build -ldflags="$LDFLAGS" -trimpath -buildvcs=false -o dist/linux/arm64/${{ env.BIN_NAME }} ./main.go
           chmod +x dist/linux/*/${{ env.BIN_NAME }}
@@ -166,7 +193,7 @@ jobs:
         shell: bash
         run: |
           set -eux
-          VER_NO_V="${{ steps.ver.outputs.no_v }}"
+          VER_NO_V="${{ steps.vars.outputs.no_v }}"
           mkdir -p ./release
           for ARCH in amd64 arm64; do
             ( cd dist/linux/$ARCH && zip -9 "consul_${VER_NO_V}_linux_${ARCH}.zip" consul )
@@ -188,8 +215,6 @@ jobs:
     name: Build & push multi-arch Docker images (default [+UBI])
     runs-on: ubuntu-latest
     needs: build
-    outputs:
-      ver_no_v: ${{ steps.ver.outputs.no_v }}
 
     steps:
       - name: Checkout Consul @ tag
@@ -201,13 +226,6 @@ jobs:
           path: consul
           persist-credentials: false
 
-      - name: Derive version & repo (again)
-        id: ver
-        run: |
-          TAG="${{ inputs.tag }}"
-          echo "no_v=${TAG#v}" >> "$GITHUB_OUTPUT"
-          echo "repo_lc=${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
-
       - name: Download binaries from build job
         uses: actions/download-artifact@v4
         with:
@@ -218,16 +236,16 @@ jobs:
         shell: bash
         working-directory: consul
         run: |
-            set -eux
-            ROOT="../dl"
-            mkdir -p dist/linux/amd64 dist/linux/arm64
-            src_amd64=$(find "$ROOT" -type f -path "*/dist/linux/amd64/consul" | head -n1)
-            src_arm64=$(find "$ROOT" -type f -path "*/dist/linux/arm64/consul" | head -n1)
-            [ -n "$src_amd64" ] || { echo "amd64 binary not found in $ROOT"; ls -R "$ROOT"; exit 1; }
-            [ -n "$src_arm64" ] || { echo "arm64 binary not found in $ROOT"; ls -R "$ROOT"; exit 1; }
-            cp "$src_amd64" dist/linux/amd64/consul
-            cp "$src_arm64" dist/linux/arm64/consul
-            chmod +x dist/linux/*/consul
+          set -eux
+          ROOT="../dl"
+          mkdir -p dist/linux/amd64 dist/linux/arm64
+          src_amd64=$(find "$ROOT" -type f -path "*/dist/linux/amd64/consul" | head -n1)
+          src_arm64=$(find "$ROOT" -type f -path "*/dist/linux/arm64/consul" | head -n1)
+          [ -n "$src_amd64" ] || { echo "amd64 binary not found in $ROOT"; ls -R "$ROOT"; exit 1; }
+          [ -n "$src_arm64" ] || { echo "arm64 binary not found in $ROOT"; ls -R "$ROOT"; exit 1; }
+          cp "$src_amd64" dist/linux/amd64/consul
+          cp "$src_arm64" dist/linux/arm64/consul
+          chmod +x dist/linux/*/consul
 
       - name: Login to GHCR
         uses: docker/login-action@v3
@@ -248,8 +266,8 @@ jobs:
         working-directory: consul
         run: |
           set -eux
-          IMAGE="ghcr.io/${{ steps.ver.outputs.repo_lc }}"
-          VER="${{ steps.ver.outputs.no_v }}"
+          IMAGE="${{ needs.build.outputs.image }}"
+          VER="${{ needs.build.outputs.no_v }}"
           docker buildx build \
             --file Dockerfile \
             --target default \
@@ -262,12 +280,12 @@ jobs:
             .
 
       - name: Build & push multi-arch image (target=ubi)
-        if: ${{ inputs.build_ubi }}
+        if: ${{ needs.build.outputs.ubi == 'true' }}
         working-directory: consul
         run: |
           set -eux
-          IMAGE="ghcr.io/${{ steps.ver.outputs.repo_lc }}"
-          VER="${{ steps.ver.outputs.no_v }}"
+          IMAGE="${{ needs.build.outputs.image }}"
+          VER="${{ needs.build.outputs.no_v }}"
           docker buildx build \
             --file Dockerfile \
             --target ubi \
@@ -280,12 +298,12 @@ jobs:
             .
 
       - name: Apply extra tags to default image (multi-arch)
-        if: ${{ inputs.docker_extra_tags != '' }}
+        if: ${{ needs.build.outputs.extra_tags != '' }}
         run: |
           set -euo pipefail
-          IMAGE="ghcr.io/${{ steps.ver.outputs.repo_lc }}"
-          VER="${{ steps.ver.outputs.no_v }}"
-          IFS=',' read -ra TAGS <<< "${{ inputs.docker_extra_tags }}"
+          IMAGE="${{ needs.build.outputs.image }}"
+          VER="${{ needs.build.outputs.no_v }}"
+          IFS=',' read -ra TAGS <<< "${{ needs.build.outputs.extra_tags }}"
           for raw in "${TAGS[@]}"; do
             tag="$(echo "$raw" | xargs)"
             [ -z "$tag" ] && continue
@@ -294,12 +312,12 @@ jobs:
           done
 
       - name: Apply extra tags to UBI image (multi-arch)
-        if: ${{ inputs.docker_extra_tags != '' && inputs.build_ubi }}
+        if: ${{ needs.build.outputs.extra_tags != '' && needs.build.outputs.ubi == 'true' }}
         run: |
           set -euo pipefail
-          IMAGE="ghcr.io/${{ steps.ver.outputs.repo_lc }}"
-          VER="${{ steps.ver.outputs.no_v }}"
-          IFS=',' read -ra TAGS <<< "${{ inputs.docker_extra_tags }}"
+          IMAGE="${{ needs.build.outputs.image }}"
+          VER="${{ needs.build.outputs.no_v }}"
+          IFS=',' read -ra TAGS <<< "${{ needs.build.outputs.extra_tags }}"
           for raw in "${TAGS[@]}"; do
             tag="$(echo "$raw" | xargs)"
             [ -z "$tag" ] && continue
@@ -328,8 +346,8 @@ jobs:
             Automated Consul release from source with multi-arch Docker images.
 
             Docker images:
-            - default: `ghcr.io/${{ github.repository }}:${{ inputs.tag }} (=${{ needs.docker.outputs.ver_no_v }})`
-            - ubi:     `ghcr.io/${{ github.repository }}:${{ inputs.tag }}-ubi` (if enabled)
+            - default: `${{ needs.build.outputs.image }}:${{ inputs.tag }} (=${{ needs.build.outputs.no_v }})`
+            - ubi:     `${{ needs.build.outputs.image }}:${{ inputs.tag }}-ubi` (if enabled)
 
             Artifacts:
             - linux/amd64 and linux/arm64 zips
