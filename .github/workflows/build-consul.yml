@@ -355,5 +355,5 @@ jobs:
           draft: false
           prerelease: false
           files: |
-            consul-release/consul/release/consul_*_linux_*.zip
-            consul-release/consul/release/SHA256SUMS.txt
+            consul-release/release/consul_*_linux_*.zip
+            consul-release/release/SHA256SUMS.txt
