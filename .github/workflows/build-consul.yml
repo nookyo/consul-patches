@@ -42,14 +42,14 @@ jobs:
 
     steps:
       - name: Checkout patches repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
           path: patches_repo
           persist-credentials: false
 
       - name: Checkout Consul @ tag
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: hashicorp/consul
           ref: ${{ inputs.tag }}
@@ -218,7 +218,7 @@ jobs:
 
     steps:
       - name: Checkout Consul @ tag
-        uses: actions/checkout@v4
+        uses: actions/checkout@5
         with:
           repository: hashicorp/consul
           ref: ${{ inputs.tag }}
