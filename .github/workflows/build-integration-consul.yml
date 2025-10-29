@@ -92,6 +92,7 @@ jobs:
         run: |
           ls -la .
           ls -la consul-patches
+          ls -la ui
 
       - name: Apply patches
         run: |
@@ -150,12 +151,12 @@ jobs:
         run: |
           set -euo pipefail
           # priority: .nvmrc → .node-version → package.json engines.node → fallback=18
-          if [ -f consul/ui/.nvmrc ]; then
-            ver=$(tr -d ' \t\r\n' < consul/ui/.nvmrc)
-          elif [ -f consul/ui/.node-version ]; then
-            ver=$(tr -d ' \t\r\n' < consul/ui/.node-version)
-          elif [ -f consul/ui/package.json ]; then
-            engines_line=$(grep -A3 '"engines"' consul/ui/package.json || true)
+          if [ -f ui/.nvmrc ]; then
+            ver=$(tr -d ' \t\r\n' < ui/.nvmrc)
+          elif [ -f ui/.node-version ]; then
+            ver=$(tr -d ' \t\r\n' < ui/.node-version)
+          elif [ -f ui/package.json ]; then
+            engines_line=$(grep -A3 '"engines"' ui/package.json || true)
             node_req=$(echo "$engines_line" | grep -E '"node"\s*:' | sed -E 's/.*"node"\s*:\s*"([^"]+)".*/\1/')
             major=$(echo "$node_req" | sed -E 's/[^0-9.]+/ /g' | awk -F. '{print $1}' | awk '{print $1}')
             if [ -n "${major:-}" ]; then ver="$major"; else ver="18"; fi
@@ -170,8 +171,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: yarn
-          cache-dependency-path: consul/ui/yarn.lock
 
   #     - name: Build UI
   #       working-directory: consul
