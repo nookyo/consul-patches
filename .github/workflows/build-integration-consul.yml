@@ -82,6 +82,16 @@ jobs:
           echo "extra_tags=${{ inputs.docker_extra_tags }}" >> "$GITHUB_OUTPUT"
           echo "ubi=${{ inputs.build_ubi }}" >> "$GITHUB_OUTPUT"
 
+      - name: Apply patches
+        run: |
+          cd ${GITHUB_WORKSPACE}
+          for p in ./consul-patches/ consul-patches/${{ inputs.rabbitmq-tag }}/*.patch; do
+            echo "Applying $p…"
+            git apply -p1 --ignore-space-change --ignore-whitespace "$p"
+          done
+          rm -rf ./consul-patches
+
+
       - name: Detect Go version
         id: go
         run: |
@@ -94,6 +104,7 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: ${{ steps.go.outputs.version }}
+
 
   #     - name: Apply patches (if any)
   #       shell: bash
