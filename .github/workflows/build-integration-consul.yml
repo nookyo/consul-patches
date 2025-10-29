@@ -85,9 +85,10 @@ jobs:
       - name: Detect Go version
         id: go
         run: |
-          echo "version=$(cat .go-version 2>/dev/null || echo 1.21.6)" >> "$GITHUB_OUTPUT"
+          version=$(cat .go-version 2>/dev/null || echo 1.21.6)
+          echo "Detected Go version: $version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "GO_VERSION=$version" >> "$GITHUB_ENV"
-          echo ${{ env.GO_VERSION }}
 
       - name: Setup Go
         uses: actions/setup-go@v5
