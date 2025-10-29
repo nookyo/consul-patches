@@ -205,15 +205,15 @@ jobs:
   #         done
   #         ( cd release && sha256sum * > SHA256SUMS.txt )
 
-  #     - name: Upload build artifacts
-  #       uses: actions/upload-artifact@v4
-  #       with:
-  #         name: consul-${{ inputs.tag }}-artifacts
-  #         path: |
-  #           consul/release/*
-  #           consul/dist/linux/amd64/consul
-  #           consul/dist/linux/arm64/consul
-  #         if-no-files-found: error
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: consul-${{ inputs.tag }}
+          path: |
+            consul/release/*
+            consul/dist/linux/amd64/consul
+            consul/dist/linux/arm64/consul
+          if-no-files-found: error
 
   # docker:
   #   name: Build & push multi-arch Docker images (default [+UBI])
