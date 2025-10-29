@@ -45,6 +45,10 @@ jobs:
       ubi: ${{ steps.vars.outputs.ubi }}
 
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Checkout hashicorp-consul Source
         uses: actions/checkout@v5
