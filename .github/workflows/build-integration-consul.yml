@@ -130,7 +130,7 @@ jobs:
         run: |
           set -eux
           export CGO_ENABLED=0
-          CONSUL_VERSION=${{ inputs.ha }}
+          CONSUL_VERSION=${{ inputs.hashicorp-consul-tag }}
           if [ -x build-support/scripts/build-date.sh ]; then
             CONSUL_DATE=$(./build-support/scripts/build-date.sh)
           else
