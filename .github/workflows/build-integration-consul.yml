@@ -211,6 +211,8 @@ jobs:
           ls -la dist/
           ls -la dist/linux/amd64
           ls -la dist/linux/arm64
+          ls -la  dist/linux/amd64/${{ env.BIN_NAME }}
+          ls -la  dist/linux/arm64/${{ env.BIN_NAME }}
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
