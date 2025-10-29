@@ -96,7 +96,7 @@ jobs:
       - name: Apply patches
         run: |
           cd ${GITHUB_WORKSPACE}
-          for p in ./consul-patches/ consul-patches/${{ inputs.rabbitmq-tag }}/*.patch; do
+          for p in ./consul-patches/patches/${{ inputs.rabbitmq-tag }}/*.patch; do
             echo "Applying $p…"
             git apply -p1 --ignore-space-change --ignore-whitespace "$p"
           done
