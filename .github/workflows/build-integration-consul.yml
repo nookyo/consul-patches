@@ -82,6 +82,10 @@ jobs:
           echo "extra_tags=${{ inputs.docker_extra_tags }}" >> "$GITHUB_OUTPUT"
           echo "ubi=${{ inputs.build_ubi }}" >> "$GITHUB_OUTPUT"
 
+      - name: List patches to apply
+        run: |
+          ls -la
+
       - name: Apply patches
         run: |
           cd ${GITHUB_WORKSPACE}
