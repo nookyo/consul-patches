@@ -208,13 +208,16 @@ jobs:
         run: |
           echo "Build output files:"
           ls -la
+          ls -la dist/
+          ls -la dist/linux/amd64
+          ls -la dist/linux/arm64
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: consul-${{ inputs.tag }}
           path: |
-            /release/*
+            
             /dist/linux/amd64/consul
             /dist/linux/arm64/consul
           if-no-files-found: error
