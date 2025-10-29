@@ -31,7 +31,7 @@ permissions:
   packages: write # push images to GHCR
 
 env:
-  BIN_NAME: consul
+  BIN_NAME: consul-${{ inputs.tag }}
   NODE_VERSION: "18"
 
 jobs:
