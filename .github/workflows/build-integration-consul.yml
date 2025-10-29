@@ -219,6 +219,7 @@ jobs:
             /release/*
             /dist/linux/amd64/consul
             /dist/linux/arm64/consul
+          if-no-files-found: error
 
   # docker:
   #   name: Build & push multi-arch Docker images (default [+UBI])
