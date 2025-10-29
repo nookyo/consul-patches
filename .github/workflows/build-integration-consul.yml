@@ -45,16 +45,18 @@ jobs:
       ubi: ${{ steps.vars.outputs.ubi }}
 
     steps:
-      - name: Checkout consul-patches
-        uses: actions/checkout@v5
-        with:
-          path: consul-patches
 
       - name: Checkout hashicorp-consul Source
         uses: actions/checkout@v5
         with:
           repository: hashicorp/consul
           ref: ${{ inputs.hashicorp-consul-tag }}
+
+      - name: Checkout consul-patches
+        uses: actions/checkout@v5
+        with:
+          path: consul-patches
+
 
       - name: Derive release variables (version, image, tags)
         id: vars
