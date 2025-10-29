@@ -86,11 +86,12 @@ jobs:
         id: go
         run: |
           echo "version=$(cat .go-version 2>/dev/null || echo 1.21.6)" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_ENV"
 
-  #     - name: Setup Go
-  #       uses: actions/setup-go@v5
-  #       with:
-  #         go-version: ${{ steps.go.outputs.version }}
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ steps.go.outputs.version }}
 
   #     - name: Apply patches (if any)
   #       shell: bash
