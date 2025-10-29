@@ -9,7 +9,7 @@ on:
         required: true
         default: "v1.21.3"
       tag:
-        description: "Git tag of hashicorp/consul to release (e.g. v1.21.3)"
+        description: "Tag for release and Docker images (e.g. v1.21.3)"
         required: true
         default: "v1.21.3-patched"
       docker_extra_tags:
