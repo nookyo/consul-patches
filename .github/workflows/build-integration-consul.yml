@@ -61,7 +61,6 @@ jobs:
         with:
           path: consul-patches
 
-
       # - name: Derive release variables (version, image, tags)
       #   id: vars
       #   shell: bash
@@ -102,7 +101,6 @@ jobs:
           done
           rm -rf ./consul-patches
 
-
       - name: Detect Go version
         id: go
         run: |
@@ -116,31 +114,34 @@ jobs:
         with:
           go-version: ${{ steps.go.outputs.version }}
 
+      - name: Cache Go modules/build
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/go-build
+            $(go env GOPATH)/pkg/mod
+          key: ${{ runner.os }}-go-${{ steps.go.outputs.version }}-${{ hashFiles('consul/**/go.sum') }}
 
-  #     - name: Apply patches (if any)
-  #       shell: bash
-  #       run: |
-  #         set -euo pipefail
-  #         shopt -s nullglob
-  #         cd consul
-  #         PATCH_DIR=../consul-patches/patches
-  #         files=("$PATCH_DIR"/*.patch)
-  #         if (( ${#files[@]} )); then
-  #           for p in "${files[@]}"; do
-  #             echo "Applying $p"
-  #             git apply -p1 --ignore-space-change --ignore-whitespace "$p"
-  #           done
-  #         else
-  #           echo "No patches found — skipping."
-  #         fi
-
-  #     - name: Cache Go modules/build
-  #       uses: actions/cache@v3
-  #       with:
-  #         path: |
-  #           ~/.cache/go-build
-  #           $(go env GOPATH)/pkg/mod
-  #         key: ${{ runner.os }}-go-${{ steps.go.outputs.version }}-${{ hashFiles('consul/**/go.sum') }}
+      - name: Build binaries (linux/amd64 + linux/arm64) into dist/
+        shell: bash
+        run: |
+          set -eux
+          export CGO_ENABLED=0
+          CONSUL_VERSION=${{ inputs.tag }}
+          if [ -x build-support/scripts/build-date.sh ]; then
+            CONSUL_DATE=$(./build-support/scripts/build-date.sh)
+          else
+            CONSUL_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          fi
+          GIT_COMMIT=$(git rev-parse --short=8 HEAD)
+          LDFLAGS="-X github.com/hashicorp/consul/version.GitCommit=${GIT_COMMIT} \
+                   -X github.com/hashicorp/consul/version.GitDescribe=${CONSUL_VERSION} \
+                   -X github.com/hashicorp/consul/version.BuildDate=${CONSUL_DATE}"
+          mkdir -p dist/linux/amd64
+          GOOS=linux GOARCH=amd64 go build -ldflags="$LDFLAGS" -trimpath -buildvcs=false -o dist/linux/amd64/${{ env.BIN_NAME }} ./main.go
+          mkdir -p dist/linux/arm64
+          GOOS=linux GOARCH=arm64 go build -ldflags="$LDFLAGS" -trimpath -buildvcs=false -o dist/linux/arm64/${{ env.BIN_NAME }} ./main.go
+          chmod +x dist/linux/*/${{ env.BIN_NAME }}
 
   #     - name: Detect Node version for UI
   #       id: node
