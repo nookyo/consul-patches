@@ -173,25 +173,24 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
 
-  #     - name: Build UI
-  #       working-directory: consul
-  #       shell: bash
-  #       run: |
-  #         set -eux
-  #         CONSUL_VERSION=${{ inputs.tag }}
-  #         if [ -x build-support/scripts/build-date.sh ]; then
-  #           CONSUL_DATE=$(./build-support/scripts/build-date.sh)
-  #         else
-  #           CONSUL_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-  #         fi
-  #         GIT_COMMIT=$(git rev-parse --short=8 HEAD)
-  #         echo "UI for $CONSUL_VERSION ($GIT_COMMIT @ $CONSUL_DATE)"
-  #         cd ui
-  #         yarn install --frozen-lockfile
-  #         make
-  #         cd ..
-  #         rm -rf agent/uiserver/dist
-  #         mv ui/packages/consul-ui/dist agent/uiserver/
+      - name: Build UI
+        shell: bash
+        run: |
+          set -eux
+          CONSUL_VERSION=${{ inputs.hashicorp-consul-tag }}
+          if [ -x build-support/scripts/build-date.sh ]; then
+            CONSUL_DATE=$(./build-support/scripts/build-date.sh)
+          else
+            CONSUL_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          fi
+          GIT_COMMIT=$(git rev-parse --short=8 HEAD)
+          echo "UI for $CONSUL_VERSION ($GIT_COMMIT @ $CONSUL_DATE)"
+          cd ui
+          yarn install --frozen-lockfile
+          make
+          cd ..
+          rm -rf agent/uiserver/dist
+          mv ui/packages/consul-ui/dist agent/uiserver/
 
   #     - name: Build binaries (linux/amd64 + linux/arm64) into dist/
   #       working-directory: consul
