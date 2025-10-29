@@ -32,6 +32,7 @@ permissions:
 
 env:
   BIN_NAME: consul
+  NODE_VERSION: "18"
 
 jobs:
   build:
@@ -122,26 +123,26 @@ jobs:
             $(go env GOPATH)/pkg/mod
           key: ${{ runner.os }}-go-${{ steps.go.outputs.version }}-${{ hashFiles('consul/**/go.sum') }}
 
-      - name: Build binaries (linux/amd64 + linux/arm64) into dist/
-        shell: bash
-        run: |
-          set -eux
-          export CGO_ENABLED=0
-          CONSUL_VERSION=${{ inputs.tag }}
-          if [ -x build-support/scripts/build-date.sh ]; then
-            CONSUL_DATE=$(./build-support/scripts/build-date.sh)
-          else
-            CONSUL_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-          fi
-          GIT_COMMIT=$(git rev-parse --short=8 HEAD)
-          LDFLAGS="-X github.com/hashicorp/consul/version.GitCommit=${GIT_COMMIT} \
-                   -X github.com/hashicorp/consul/version.GitDescribe=${CONSUL_VERSION} \
-                   -X github.com/hashicorp/consul/version.BuildDate=${CONSUL_DATE}"
-          mkdir -p dist/linux/amd64
-          GOOS=linux GOARCH=amd64 go build -ldflags="$LDFLAGS" -trimpath -buildvcs=false -o dist/linux/amd64/${{ env.BIN_NAME }} ./main.go
-          mkdir -p dist/linux/arm64
-          GOOS=linux GOARCH=arm64 go build -ldflags="$LDFLAGS" -trimpath -buildvcs=false -o dist/linux/arm64/${{ env.BIN_NAME }} ./main.go
-          chmod +x dist/linux/*/${{ env.BIN_NAME }}
+      # - name: Build binaries (linux/amd64 + linux/arm64) into dist/
+      #   shell: bash
+      #   run: |
+      #     set -eux
+      #     export CGO_ENABLED=0
+      #     CONSUL_VERSION=${{ inputs.tag }}
+      #     if [ -x build-support/scripts/build-date.sh ]; then
+      #       CONSUL_DATE=$(./build-support/scripts/build-date.sh)
+      #     else
+      #       CONSUL_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+      #     fi
+      #     GIT_COMMIT=$(git rev-parse --short=8 HEAD)
+      #     LDFLAGS="-X github.com/hashicorp/consul/version.GitCommit=${GIT_COMMIT} \
+      #              -X github.com/hashicorp/consul/version.GitDescribe=${CONSUL_VERSION} \
+      #              -X github.com/hashicorp/consul/version.BuildDate=${CONSUL_DATE}"
+      #     mkdir -p dist/linux/amd64
+      #     GOOS=linux GOARCH=amd64 go build -ldflags="$LDFLAGS" -trimpath -buildvcs=false -o dist/linux/amd64/${{ env.BIN_NAME }} ./main.go
+      #     mkdir -p dist/linux/arm64
+      #     GOOS=linux GOARCH=arm64 go build -ldflags="$LDFLAGS" -trimpath -buildvcs=false -o dist/linux/arm64/${{ env.BIN_NAME }} ./main.go
+      #     chmod +x dist/linux/*/${{ env.BIN_NAME }}
 
       - name: Detect Node version for UI
         id: node
@@ -165,12 +166,12 @@ jobs:
           echo "NODE_VERSION=$ver" >> "$GITHUB_ENV"
           echo "Detected Node.js version: $ver"
 
-  #     - name: Setup Node.js (auto-detected)
-  #       uses: actions/setup-node@v4
-  #       with:
-  #         node-version: ${{ steps.node.outputs.version }}
-  #         cache: yarn
-  #         cache-dependency-path: consul/ui/yarn.lock
+      - name: Setup Node.js (auto-detected)
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: yarn
+          cache-dependency-path: consul/ui/yarn.lock
 
   #     - name: Build UI
   #       working-directory: consul
