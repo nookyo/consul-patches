@@ -204,15 +204,21 @@ jobs:
   #           cp "dist/linux/$ARCH/consul_${VER_NO_V}_linux_${ARCH}.zip" release/
   #         done
   #         ( cd release && sha256sum * > SHA256SUMS.txt )
+      - name: List
+        run: |
+          echo "Build output files:"
+          ls -la /release
+          ls -la /dist/linux/amd64
+          ls -la /dist/linux/arm64
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: consul-${{ inputs.tag }}
           path: |
-            consul/release/*
-            consul/dist/linux/amd64/consul
-            consul/dist/linux/arm64/consul
+            /release/*
+            /dist/linux/amd64/consul
+            /dist/linux/arm64/consul
           if-no-files-found: error
 
   # docker:
