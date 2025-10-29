@@ -94,7 +94,6 @@ jobs:
           ls -la consul-patches
           ls -la ui
           cat ui/.nvmrc
-          cat ui/.node-version
           cat ui/package.json
 
       - name: Apply patches
