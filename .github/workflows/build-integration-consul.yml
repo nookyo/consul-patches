@@ -58,35 +58,37 @@ jobs:
           path: consul-patches
 
 
-      - name: Derive release variables (version, image, tags)
-        id: vars
-        shell: bash
-        run: |
-          set -euo pipefail
+      # - name: Derive release variables (version, image, tags)
+      #   id: vars
+      #   shell: bash
+      #   run: |
+      #     set -euo pipefail
 
-          # --- version without leading 'v'
-          TAG="${{ inputs.tag }}"
-          echo "no_v=${TAG#v}" >> "$GITHUB_OUTPUT"
+      #     # --- version without leading 'v'
+      #     TAG="${{ inputs.tag }}"
+      #     echo "no_v=${TAG#v}" >> "$GITHUB_OUTPUT"
 
-          OWNER="${GITHUB_REPOSITORY_OWNER,,}"
-          RAW_NAME="${{ inputs.docker_image_name }}"
+      #     OWNER="${GITHUB_REPOSITORY_OWNER,,}"
+      #     RAW_NAME="${{ inputs.docker_image_name }}"
 
-          if [ -z "$RAW_NAME" ]; then
-            IMG_PATH="${GITHUB_REPOSITORY,,}"
-          else
-            NAME_ONLY="$(echo "$RAW_NAME" | awk -F/ '{print $NF}' | tr '[:upper:]' '[:lower:]')"
-            IMG_PATH="${OWNER}/${NAME_ONLY}"
-          fi
+      #     if [ -z "$RAW_NAME" ]; then
+      #       IMG_PATH="${GITHUB_REPOSITORY,,}"
+      #     else
+      #       NAME_ONLY="$(echo "$RAW_NAME" | awk -F/ '{print $NF}' | tr '[:upper:]' '[:lower:]')"
+      #       IMG_PATH="${OWNER}/${NAME_ONLY}"
+      #     fi
 
-          echo "repo_lc=${IMG_PATH}" >> "$GITHUB_OUTPUT"
-          echo "image=ghcr.io/${IMG_PATH}" >> "$GITHUB_OUTPUT"
+      #     echo "repo_lc=${IMG_PATH}" >> "$GITHUB_OUTPUT"
+      #     echo "image=ghcr.io/${IMG_PATH}" >> "$GITHUB_OUTPUT"
 
-          echo "extra_tags=${{ inputs.docker_extra_tags }}" >> "$GITHUB_OUTPUT"
-          echo "ubi=${{ inputs.build_ubi }}" >> "$GITHUB_OUTPUT"
+      #     echo "extra_tags=${{ inputs.docker_extra_tags }}" >> "$GITHUB_OUTPUT"
+      #     echo "ubi=${{ inputs.build_ubi }}" >> "$GITHUB_OUTPUT"
 
       - name: List patches to apply
         run: |
-          ls -la
+          ls -la .
+          ls -la consul-patches
+          ls -la hashicorp-consul
 
       - name: Apply patches
         run: |
