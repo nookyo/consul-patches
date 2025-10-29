@@ -207,9 +207,7 @@ jobs:
       - name: List
         run: |
           echo "Build output files:"
-          ls -la /release
-          ls -la /dist/linux/amd64
-          ls -la /dist/linux/arm64
+          ls - la
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
