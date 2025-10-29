@@ -143,25 +143,27 @@ jobs:
           GOOS=linux GOARCH=arm64 go build -ldflags="$LDFLAGS" -trimpath -buildvcs=false -o dist/linux/arm64/${{ env.BIN_NAME }} ./main.go
           chmod +x dist/linux/*/${{ env.BIN_NAME }}
 
-  #     - name: Detect Node version for UI
-  #       id: node
-  #       shell: bash
-  #       run: |
-  #         set -euo pipefail
-  #         # priority: .nvmrc → .node-version → package.json engines.node → fallback=18
-  #         if [ -f consul/ui/.nvmrc ]; then
-  #           ver=$(tr -d ' \t\r\n' < consul/ui/.nvmrc)
-  #         elif [ -f consul/ui/.node-version ]; then
-  #           ver=$(tr -d ' \t\r\n' < consul/ui/.node-version)
-  #         elif [ -f consul/ui/package.json ]; then
-  #           engines_line=$(grep -A3 '"engines"' consul/ui/package.json || true)
-  #           node_req=$(echo "$engines_line" | grep -E '"node"\s*:' | sed -E 's/.*"node"\s*:\s*"([^"]+)".*/\1/')
-  #           major=$(echo "$node_req" | sed -E 's/[^0-9.]+/ /g' | awk -F. '{print $1}' | awk '{print $1}')
-  #           if [ -n "${major:-}" ]; then ver="$major"; else ver="18"; fi
-  #         else
-  #           ver="18"
-  #         fi
-  #         echo "version=$ver" >> "$GITHUB_OUTPUT"
+      - name: Detect Node version for UI
+        id: node
+        shell: bash
+        run: |
+          set -euo pipefail
+          # priority: .nvmrc → .node-version → package.json engines.node → fallback=18
+          if [ -f consul/ui/.nvmrc ]; then
+            ver=$(tr -d ' \t\r\n' < consul/ui/.nvmrc)
+          elif [ -f consul/ui/.node-version ]; then
+            ver=$(tr -d ' \t\r\n' < consul/ui/.node-version)
+          elif [ -f consul/ui/package.json ]; then
+            engines_line=$(grep -A3 '"engines"' consul/ui/package.json || true)
+            node_req=$(echo "$engines_line" | grep -E '"node"\s*:' | sed -E 's/.*"node"\s*:\s*"([^"]+)".*/\1/')
+            major=$(echo "$node_req" | sed -E 's/[^0-9.]+/ /g' | awk -F. '{print $1}' | awk '{print $1}')
+            if [ -n "${major:-}" ]; then ver="$major"; else ver="18"; fi
+          else
+            ver="18"
+          fi
+          echo "version=$ver" >> "$GITHUB_OUTPUT"
+          echo "NODE_VERSION=$ver" >> "$GITHUB_ENV"
+          echo "Detected Node.js version: $ver"
 
   #     - name: Setup Node.js (auto-detected)
   #       uses: actions/setup-node@v4
