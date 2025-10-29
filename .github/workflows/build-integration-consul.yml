@@ -1,0 +1,357 @@
+name: release-consul
+run-name: "Consul Release ${{ inputs.tag }} (UBI=${{ inputs.build_ubi }}) by @${{ github.actor }}"
+
+on:
+  workflow_dispatch:
+    inputs:
+      hashicorp-consul-tag:
+        description: "Git tag of hashicorp/consul to release (e.g. v1.21.3)"
+        required: true
+        default: "v1.21.3"
+      tag:
+        description: "Git tag of hashicorp/consul to release (e.g. v1.21.3)"
+        required: true
+        default: "v1.21.3-patched"
+      docker_extra_tags:
+        description: "Comma-separated extra tags for the multi-arch image (e.g. latest, stable)"
+        required: false
+        default: ""
+      docker_image_name:
+        description: "Override Docker image REPO name only (owner is auto-injected). Leave empty to use current repo name."
+        required: false
+        default: ""
+      build_ubi:
+        description: "Also build UBI variant (target=ubi)"
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: write # create GitHub Release & upload assets
+  packages: write # push images to GHCR
+
+env:
+  BIN_NAME: consul
+
+jobs:
+  build:
+    name: Build UI + binaries (amd64/arm64) and pack artifacts
+    runs-on: ubuntu-latest
+    outputs:
+      no_v: ${{ steps.vars.outputs.no_v }}
+      repo_lc: ${{ steps.vars.outputs.repo_lc }}
+      image: ${{ steps.vars.outputs.image }}
+      extra_tags: ${{ steps.vars.outputs.extra_tags }}
+      ubi: ${{ steps.vars.outputs.ubi }}
+
+    steps:
+      - name: Checkout consul-patches
+        uses: actions/checkout@v5
+        with:
+          path: consul-patches
+
+      - name: Checkout hashicorp-consul Source
+        uses: actions/checkout@v5
+        with:
+          repository: hashicorp/consul
+          ref: ${{ inputs.hashicorp-consul-tag }}
+
+      - name: Derive release variables (version, image, tags)
+        id: vars
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # --- version without leading 'v'
+          TAG="${{ inputs.tag }}"
+          echo "no_v=${TAG#v}" >> "$GITHUB_OUTPUT"
+
+          OWNER="${GITHUB_REPOSITORY_OWNER,,}"
+          RAW_NAME="${{ inputs.docker_image_name }}"
+
+          if [ -z "$RAW_NAME" ]; then
+            IMG_PATH="${GITHUB_REPOSITORY,,}"
+          else
+            NAME_ONLY="$(echo "$RAW_NAME" | awk -F/ '{print $NF}' | tr '[:upper:]' '[:lower:]')"
+            IMG_PATH="${OWNER}/${NAME_ONLY}"
+          fi
+
+          echo "repo_lc=${IMG_PATH}" >> "$GITHUB_OUTPUT"
+          echo "image=ghcr.io/${IMG_PATH}" >> "$GITHUB_OUTPUT"
+
+          echo "extra_tags=${{ inputs.docker_extra_tags }}" >> "$GITHUB_OUTPUT"
+          echo "ubi=${{ inputs.build_ubi }}" >> "$GITHUB_OUTPUT"
+
+      - name: Detect Go version
+        id: go
+        run: |
+          echo "version=$(cat .go-version 2>/dev/null || echo 1.21.6)" >> "$GITHUB_OUTPUT"
+
+  #     - name: Setup Go
+  #       uses: actions/setup-go@v5
+  #       with:
+  #         go-version: ${{ steps.go.outputs.version }}
+
+  #     - name: Apply patches (if any)
+  #       shell: bash
+  #       run: |
+  #         set -euo pipefail
+  #         shopt -s nullglob
+  #         cd consul
+  #         PATCH_DIR=../consul-patches/patches
+  #         files=("$PATCH_DIR"/*.patch)
+  #         if (( ${#files[@]} )); then
+  #           for p in "${files[@]}"; do
+  #             echo "Applying $p"
+  #             git apply -p1 --ignore-space-change --ignore-whitespace "$p"
+  #           done
+  #         else
+  #           echo "No patches found — skipping."
+  #         fi
+
+  #     - name: Cache Go modules/build
+  #       uses: actions/cache@v3
+  #       with:
+  #         path: |
+  #           ~/.cache/go-build
+  #           $(go env GOPATH)/pkg/mod
+  #         key: ${{ runner.os }}-go-${{ steps.go.outputs.version }}-${{ hashFiles('consul/**/go.sum') }}
+
+  #     - name: Detect Node version for UI
+  #       id: node
+  #       shell: bash
+  #       run: |
+  #         set -euo pipefail
+  #         # priority: .nvmrc → .node-version → package.json engines.node → fallback=18
+  #         if [ -f consul/ui/.nvmrc ]; then
+  #           ver=$(tr -d ' \t\r\n' < consul/ui/.nvmrc)
+  #         elif [ -f consul/ui/.node-version ]; then
+  #           ver=$(tr -d ' \t\r\n' < consul/ui/.node-version)
+  #         elif [ -f consul/ui/package.json ]; then
+  #           engines_line=$(grep -A3 '"engines"' consul/ui/package.json || true)
+  #           node_req=$(echo "$engines_line" | grep -E '"node"\s*:' | sed -E 's/.*"node"\s*:\s*"([^"]+)".*/\1/')
+  #           major=$(echo "$node_req" | sed -E 's/[^0-9.]+/ /g' | awk -F. '{print $1}' | awk '{print $1}')
+  #           if [ -n "${major:-}" ]; then ver="$major"; else ver="18"; fi
+  #         else
+  #           ver="18"
+  #         fi
+  #         echo "version=$ver" >> "$GITHUB_OUTPUT"
+
+  #     - name: Setup Node.js (auto-detected)
+  #       uses: actions/setup-node@v4
+  #       with:
+  #         node-version: ${{ steps.node.outputs.version }}
+  #         cache: yarn
+  #         cache-dependency-path: consul/ui/yarn.lock
+
+  #     - name: Build UI
+  #       working-directory: consul
+  #       shell: bash
+  #       run: |
+  #         set -eux
+  #         CONSUL_VERSION=${{ inputs.tag }}
+  #         if [ -x build-support/scripts/build-date.sh ]; then
+  #           CONSUL_DATE=$(./build-support/scripts/build-date.sh)
+  #         else
+  #           CONSUL_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+  #         fi
+  #         GIT_COMMIT=$(git rev-parse --short=8 HEAD)
+  #         echo "UI for $CONSUL_VERSION ($GIT_COMMIT @ $CONSUL_DATE)"
+  #         cd ui
+  #         yarn install --frozen-lockfile
+  #         make
+  #         cd ..
+  #         rm -rf agent/uiserver/dist
+  #         mv ui/packages/consul-ui/dist agent/uiserver/
+
+  #     - name: Build binaries (linux/amd64 + linux/arm64) into dist/
+  #       working-directory: consul
+  #       shell: bash
+  #       run: |
+  #         set -eux
+  #         export CGO_ENABLED=0
+  #         CONSUL_VERSION=${{ inputs.tag }}
+  #         if [ -x build-support/scripts/build-date.sh ]; then
+  #           CONSUL_DATE=$(./build-support/scripts/build-date.sh)
+  #         else
+  #           CONSUL_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+  #         fi
+  #         GIT_COMMIT=$(git rev-parse --short=8 HEAD)
+  #         LDFLAGS="-X github.com/hashicorp/consul/version.GitCommit=${GIT_COMMIT} \
+  #                  -X github.com/hashicorp/consul/version.GitDescribe=${CONSUL_VERSION} \
+  #                  -X github.com/hashicorp/consul/version.BuildDate=${CONSUL_DATE}"
+  #         mkdir -p dist/linux/amd64
+  #         GOOS=linux GOARCH=amd64 go build -ldflags="$LDFLAGS" -trimpath -buildvcs=false -o dist/linux/amd64/${{ env.BIN_NAME }} ./main.go
+  #         mkdir -p dist/linux/arm64
+  #         GOOS=linux GOARCH=arm64 go build -ldflags="$LDFLAGS" -trimpath -buildvcs=false -o dist/linux/arm64/${{ env.BIN_NAME }} ./main.go
+  #         chmod +x dist/linux/*/${{ env.BIN_NAME }}
+
+  #     - name: Pack ZIPs + SHA256SUMS (release-style)
+  #       working-directory: consul
+  #       shell: bash
+  #       run: |
+  #         set -eux
+  #         VER_NO_V="${{ steps.vars.outputs.no_v }}"
+  #         mkdir -p ./release
+  #         for ARCH in amd64 arm64; do
+  #           ( cd dist/linux/$ARCH && zip -9 "consul_${VER_NO_V}_linux_${ARCH}.zip" consul )
+  #           cp "dist/linux/$ARCH/consul_${VER_NO_V}_linux_${ARCH}.zip" release/
+  #         done
+  #         ( cd release && sha256sum * > SHA256SUMS.txt )
+
+  #     - name: Upload build artifacts
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: consul-${{ inputs.tag }}-artifacts
+  #         path: |
+  #           consul/release/*
+  #           consul/dist/linux/amd64/consul
+  #           consul/dist/linux/arm64/consul
+  #         if-no-files-found: error
+
+  # docker:
+  #   name: Build & push multi-arch Docker images (default [+UBI])
+  #   runs-on: ubuntu-latest
+  #   needs: build
+
+  #   steps:
+  #     - name: Checkout Consul @ tag
+  #       uses: actions/checkout@v5
+  #       with:
+  #         repository: hashicorp/consul
+  #         ref: ${{ inputs.tag }}
+  #         fetch-depth: 0
+  #         path: consul
+  #         persist-credentials: false
+
+  #     - name: Download binaries from build job
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         name: consul-${{ inputs.tag }}-artifacts
+  #         path: dl
+
+  #     - name: Place binaries into dist/ (for Dockerfile COPY)
+  #       shell: bash
+  #       working-directory: consul
+  #       run: |
+  #         set -eux
+  #         ROOT="../dl"
+  #         mkdir -p dist/linux/amd64 dist/linux/arm64
+  #         src_amd64=$(find "$ROOT" -type f -path "*/dist/linux/amd64/consul" | head -n1)
+  #         src_arm64=$(find "$ROOT" -type f -path "*/dist/linux/arm64/consul" | head -n1)
+  #         [ -n "$src_amd64" ] || { echo "amd64 binary not found in $ROOT"; ls -R "$ROOT"; exit 1; }
+  #         [ -n "$src_arm64" ] || { echo "arm64 binary not found in $ROOT"; ls -R "$ROOT"; exit 1; }
+  #         cp "$src_amd64" dist/linux/amd64/consul
+  #         cp "$src_arm64" dist/linux/arm64/consul
+  #         chmod +x dist/linux/*/consul
+
+  #     - name: Login to GHCR
+  #       uses: docker/login-action@v3
+  #       with:
+  #         registry: ghcr.io
+  #         username: ${{ github.actor }}
+  #         password: ${{ secrets.GITHUB_TOKEN }}
+
+  #     - name: Setup QEMU
+  #       uses: docker/setup-qemu-action@v3
+  #       with:
+  #         platforms: arm,arm64
+
+  #     - name: Setup Buildx
+  #       uses: docker/setup-buildx-action@v3
+
+  #     - name: Build & push multi-arch image (target=default)
+  #       working-directory: consul
+  #       run: |
+  #         set -eux
+  #         IMAGE="${{ needs.build.outputs.image }}"
+  #         VER="${{ needs.build.outputs.no_v }}"
+  #         docker buildx build \
+  #           --file Dockerfile \
+  #           --target default \
+  #           --platform linux/amd64,linux/arm64 \
+  #           --build-arg BIN_NAME=consul \
+  #           --build-arg PRODUCT_VERSION="$VER" \
+  #           --tag "${IMAGE}:${VER}" \
+  #           --provenance=false \
+  #           --push \
+  #           .
+
+  #     - name: Build & push multi-arch image (target=ubi)
+  #       if: ${{ needs.build.outputs.ubi == 'true' }}
+  #       working-directory: consul
+  #       run: |
+  #         set -eux
+  #         IMAGE="${{ needs.build.outputs.image }}"
+  #         VER="${{ needs.build.outputs.no_v }}"
+  #         docker buildx build \
+  #           --file Dockerfile \
+  #           --target ubi \
+  #           --platform linux/amd64,linux/arm64 \
+  #           --build-arg BIN_NAME=consul \
+  #           --build-arg PRODUCT_VERSION="$VER" \
+  #           --tag "${IMAGE}:${VER}-ubi" \
+  #           --provenance=false \
+  #           --push \
+  #           .
+
+  #     - name: Apply extra tags to default image (multi-arch)
+  #       if: ${{ needs.build.outputs.extra_tags != '' }}
+  #       run: |
+  #         set -euo pipefail
+  #         IMAGE="${{ needs.build.outputs.image }}"
+  #         VER="${{ needs.build.outputs.no_v }}"
+  #         IFS=',' read -ra TAGS <<< "${{ needs.build.outputs.extra_tags }}"
+  #         for raw in "${TAGS[@]}"; do
+  #           tag="$(echo "$raw" | xargs)"
+  #           [ -z "$tag" ] && continue
+  #           echo "Retag ${IMAGE}:${VER} -> ${IMAGE}:${tag}"
+  #           docker buildx imagetools create -t "${IMAGE}:${tag}" "${IMAGE}:${VER}"
+  #         done
+
+  #     - name: Apply extra tags to UBI image (multi-arch)
+  #       if: ${{ needs.build.outputs.extra_tags != '' && needs.build.outputs.ubi == 'true' }}
+  #       run: |
+  #         set -euo pipefail
+  #         IMAGE="${{ needs.build.outputs.image }}"
+  #         VER="${{ needs.build.outputs.no_v }}"
+  #         IFS=',' read -ra TAGS <<< "${{ needs.build.outputs.extra_tags }}"
+  #         for raw in "${TAGS[@]}"; do
+  #           tag="$(echo "$raw" | xargs)"
+  #           [ -z "$tag" ] && continue
+  #           echo "Retag ${IMAGE}:${VER}-ubi -> ${IMAGE}:${tag}-ubi"
+  #           docker buildx imagetools create -t "${IMAGE}:${tag}-ubi" "${IMAGE}:${VER}-ubi"
+  #         done
+
+  # github_release:
+  #   name: Create GitHub Release & upload assets
+  #   runs-on: ubuntu-latest
+  #   needs: [build, docker]
+
+  #   steps:
+  #     - name: Download release artifacts
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         name: consul-${{ inputs.tag }}-artifacts
+  #         path: consul-release
+
+  #     - name: Create GitHub Release
+  #       uses: softprops/action-gh-release@v2
+  #       with:
+  #         tag_name: ${{ inputs.tag }}
+  #         name: Consul ${{ inputs.tag }}
+  #         body: |
+  #           Automated Consul release from source with multi-arch Docker images.
+
+  #           Docker images:
+  #           - default: `${{ needs.build.outputs.image }}:${{ inputs.tag }} (=${{ needs.build.outputs.no_v }})`
+  #           - ubi:     `${{ needs.build.outputs.image }}:${{ inputs.tag }}-ubi` (if enabled)
+
+  #           Artifacts:
+  #           - linux/amd64 and linux/arm64 zips
+  #           - SHA256SUMS.txt
+  #         draft: false
+  #         prerelease: false
+  #         files: |
+  #           consul-release/release/consul_*_linux_*.zip
+  #           consul-release/release/SHA256SUMS.txt
