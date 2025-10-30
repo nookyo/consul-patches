@@ -221,6 +221,7 @@ jobs:
 
       - name: Build Consul Docker image
         run: |
+          cp dist/linux/amd64/consul-v1.21.3-patched dist/linux/amd64/consul
           docker build \
             --target=default \
             --build-arg BIN_NAME=${{ env.BIN_NAME }} \
