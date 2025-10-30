@@ -31,18 +31,8 @@ jobs:
   build:
     name: Build UI + binaries (amd64/arm64) and pack artifacts
     runs-on: ubuntu-latest
-    # outputs:
-    #   no_v: ${{ steps.vars.outputs.no_v }}
-    #   repo_lc: ${{ steps.vars.outputs.repo_lc }}
-    #   image: ${{ steps.vars.outputs.image }}
-    #   extra_tags: ${{ steps.vars.outputs.extra_tags }}
-    #   ubi: ${{ steps.vars.outputs.ubi }}
 
     steps:
-      # - name: Checkout repository
-      #   uses: actions/checkout@v4
-      #   with:
-      #     fetch-depth: 0
 
       - name: Checkout hashicorp/consul source
         uses: actions/checkout@v5
@@ -54,32 +44,6 @@ jobs:
         uses: actions/checkout@v5
         with:
           path: consul-patches
-
-      # - name: Derive release variables (version, image, tags)
-      #   id: vars
-      #   shell: bash
-      #   run: |
-      #     set -euo pipefail
-
-      #     # --- version without leading 'v'
-      #     TAG="${{ inputs.tag }}"
-      #     echo "no_v=${TAG#v}" >> "$GITHUB_OUTPUT"
-
-      #     OWNER="${GITHUB_REPOSITORY_OWNER,,}"
-      #     RAW_NAME="${{ inputs.docker_image_name }}"
-
-      #     if [ -z "$RAW_NAME" ]; then
-      #       IMG_PATH="${GITHUB_REPOSITORY,,}"
-      #     else
-      #       NAME_ONLY="$(echo "$RAW_NAME" | awk -F/ '{print $NF}' | tr '[:upper:]' '[:lower:]')"
-      #       IMG_PATH="${OWNER}/${NAME_ONLY}"
-      #     fi
-
-      #     echo "repo_lc=${IMG_PATH}" >> "$GITHUB_OUTPUT"
-      #     echo "image=ghcr.io/${IMG_PATH}" >> "$GITHUB_OUTPUT"
-
-      #     echo "extra_tags=${{ inputs.docker_extra_tags }}" >> "$GITHUB_OUTPUT"
-      #     echo "ubi=${{ inputs.build_ubi }}" >> "$GITHUB_OUTPUT"
 
       - name: List patches to apply
         run: |
@@ -221,120 +185,6 @@ jobs:
             dist/linux/amd64/${{ env.BIN_NAME }}
             dist/linux/arm64/${{ env.BIN_NAME }}
           if-no-files-found: error
-
-  # docker:
-  #   name: Build & push multi-arch Docker images (default [+UBI])
-  #   runs-on: ubuntu-latest
-  #   needs: build
-
-  #   steps:
-  #     - name: Checkout Consul @ tag
-  #       uses: actions/checkout@v5
-  #       with:
-  #         repository: hashicorp/consul
-  #         ref: ${{ inputs.tag }}
-  #         fetch-depth: 0
-  #         path: consul
-  #         persist-credentials: false
-
-  #     - name: Download binaries from build job
-  #       uses: actions/download-artifact@v4
-  #       with:
-  #         name: consul-${{ inputs.tag }}-artifacts
-  #         path: dl
-
-  #     - name: Place binaries into dist/ (for Dockerfile COPY)
-  #       shell: bash
-  #       working-directory: consul
-  #       run: |
-  #         set -eux
-  #         ROOT="../dl"
-  #         mkdir -p dist/linux/amd64 dist/linux/arm64
-  #         src_amd64=$(find "$ROOT" -type f -path "*/dist/linux/amd64/consul" | head -n1)
-  #         src_arm64=$(find "$ROOT" -type f -path "*/dist/linux/arm64/consul" | head -n1)
-  #         [ -n "$src_amd64" ] || { echo "amd64 binary not found in $ROOT"; ls -R "$ROOT"; exit 1; }
-  #         [ -n "$src_arm64" ] || { echo "arm64 binary not found in $ROOT"; ls -R "$ROOT"; exit 1; }
-  #         cp "$src_amd64" dist/linux/amd64/consul
-  #         cp "$src_arm64" dist/linux/arm64/consul
-  #         chmod +x dist/linux/*/consul
-
-  #     - name: Login to GHCR
-  #       uses: docker/login-action@v3
-  #       with:
-  #         registry: ghcr.io
-  #         username: ${{ github.actor }}
-  #         password: ${{ secrets.GITHUB_TOKEN }}
-
-  #     - name: Setup QEMU
-  #       uses: docker/setup-qemu-action@v3
-  #       with:
-  #         platforms: arm,arm64
-
-  #     - name: Setup Buildx
-  #       uses: docker/setup-buildx-action@v3
-
-  #     - name: Build & push multi-arch image (target=default)
-  #       working-directory: consul
-  #       run: |
-  #         set -eux
-  #         IMAGE="${{ needs.build.outputs.image }}"
-  #         VER="${{ needs.build.outputs.no_v }}"
-  #         docker buildx build \
-  #           --file Dockerfile \
-  #           --target default \
-  #           --platform linux/amd64,linux/arm64 \
-  #           --build-arg BIN_NAME=consul \
-  #           --build-arg PRODUCT_VERSION="$VER" \
-  #           --tag "${IMAGE}:${VER}" \
-  #           --provenance=false \
-  #           --push \
-  #           .
-
-  #     - name: Build & push multi-arch image (target=ubi)
-  #       if: ${{ needs.build.outputs.ubi == 'true' }}
-  #       working-directory: consul
-  #       run: |
-  #         set -eux
-  #         IMAGE="${{ needs.build.outputs.image }}"
-  #         VER="${{ needs.build.outputs.no_v }}"
-  #         docker buildx build \
-  #           --file Dockerfile \
-  #           --target ubi \
-  #           --platform linux/amd64,linux/arm64 \
-  #           --build-arg BIN_NAME=consul \
-  #           --build-arg PRODUCT_VERSION="$VER" \
-  #           --tag "${IMAGE}:${VER}-ubi" \
-  #           --provenance=false \
-  #           --push \
-  #           .
-
-  #     - name: Apply extra tags to default image (multi-arch)
-  #       if: ${{ needs.build.outputs.extra_tags != '' }}
-  #       run: |
-  #         set -euo pipefail
-  #         IMAGE="${{ needs.build.outputs.image }}"
-  #         VER="${{ needs.build.outputs.no_v }}"
-  #         IFS=',' read -ra TAGS <<< "${{ needs.build.outputs.extra_tags }}"
-  #         for raw in "${TAGS[@]}"; do
-  #           tag="$(echo "$raw" | xargs)"
-  #           [ -z "$tag" ] && continue
-  #           echo "Retag ${IMAGE}:${VER} -> ${IMAGE}:${tag}"
-  #           docker buildx imagetools create -t "${IMAGE}:${tag}" "${IMAGE}:${VER}"
-  #         done
-
-  #     - name: Apply extra tags to UBI image (multi-arch)
-  #       if: ${{ needs.build.outputs.extra_tags != '' && needs.build.outputs.ubi == 'true' }}
-  #       run: |
-  #         set -euo pipefail
-  #         IMAGE="${{ needs.build.outputs.image }}"
-  #         VER="${{ needs.build.outputs.no_v }}"
-  #         IFS=',' read -ra TAGS <<< "${{ needs.build.outputs.extra_tags }}"
-  #         for raw in "${TAGS[@]}"; do
-  #           tag="$(echo "$raw" | xargs)"
-  #           [ -z "$tag" ] && continue
-  #           echo "Retag ${IMAGE}:${VER}-ubi -> ${IMAGE}:${tag}-ubi"
-  #           docker buildx imagetools create -t "${IMAGE}:${tag}-ubi" "${IMAGE}:${VER}-ubi"
-  #         done
 
   # github_release:
   #   name: Create GitHub Release & upload assets
