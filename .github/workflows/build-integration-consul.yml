@@ -1,5 +1,5 @@
-name: Consul Integration
-run-name: "Consul Release ${{ inputs.tag }} (UBI=${{ inputs.build_ubi }}) by @${{ github.actor }}"
+name: Build Integration Consul
+run-name: "Consul ${{ inputs. hashicorp-consul-tag }} -> Release ${{ inputs.tag }}  by @${{ github.actor }}"
 
 on:
   workflow_dispatch:
