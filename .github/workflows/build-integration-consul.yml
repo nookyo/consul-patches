@@ -220,9 +220,9 @@ jobs:
           platforms: linux/amd64,linux/arm64
           tags: ${{env.FULL_BASE_IMAGE_NAME }}
           build-args: |
-            BIN_NAME=consul \
-            PRODUCT_VERSION=${{ inputs.hashicorp-consul-tag }} \
-            PRODUCT_REVISION=$(git rev-parse --short HEAD) \
+            BIN_NAME=consul
+            PRODUCT_VERSION=${{ inputs.hashicorp-consul-tag }}
+            PRODUCT_REVISION=${{ github.sha }}
           push: true
           provenance: false
 
