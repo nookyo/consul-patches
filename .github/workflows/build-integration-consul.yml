@@ -30,7 +30,10 @@ permissions:
 env:
   BIN_NAME: consul-${{ inputs.tag }}
   NODE_VERSION: "18"
-  FULL_BASE_IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/qubership-consul-base:${{ inputs.tag }}
+  FULL_BASE_IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/qubership-consul-base:${{ inputs.hashicorp-consul-tag }}-patched
+  TAG: ${{ inputs.tag }}
+  EVENT_TARGET_REPO: "nookyo/qubership-integration-events"
+  CONSUL_PATCHED_TAG: ${{ inputs.tag }}-patched
 
 jobs:
   build:
@@ -231,3 +234,19 @@ jobs:
           docker logs consul-test || true
           echo "=== Container filesystem ==="
           docker exec consul-test ls -l /bin || true
+
+      - name: Trigger custom event
+        uses: netcracker/qubership-workflow-hub/actions/custom-event@v2.0.1
+        with:
+          event-type: "integration-consul-built"
+          client-payload: |
+            {
+               "base_image": "${{ env.FULL_BASE_IMAGE_NAME}}",
+               "tag": "${{ env.TAG }}",
+               "patchedTag": "${{ env.CONSUL_PATCHED_TAG }}",
+               "repo": "${{ github.repository }}",
+               "owner": "${{ github.repository_owner }}"
+            }
+          owner: "${{ github.repository_owner }}"
+          repo: "${{ env.EVENT_TARGET_REPO }}"
+          github-token: ${{ secrets.GH_ACCESS_TOKEN }}
