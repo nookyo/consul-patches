@@ -158,6 +158,10 @@ jobs:
           ls -la dist/linux/amd64/
           ls -la dist/linux/arm64/
 
+      - name: Fix .dockerignore (allow dist for build)
+        run: |
+          sed -i '/^dist\//d' .dockerignore || true
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
