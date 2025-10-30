@@ -51,7 +51,7 @@ jobs:
           path: consul-patches
 
       - name: Debug listing
-        if: ${{ inputs.debug == 'true' }} || failure()
+        if: ${{ inputs.debug == 'true' }}
         run: |
           ls -la .
           ls -la consul-patches
