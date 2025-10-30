@@ -12,11 +12,11 @@ on:
         description: "Tag for release and Docker images (e.g. v1.21.3)"
         required: true
         default: "v1.21.3-patched"
-      build_ubi:
-        description: "Also build UBI variant (target=ubi)"
-        type: boolean
-        required: false
-        default: false
+      # build_ubi:
+      #   description: "Also build UBI variant (target=ubi)"
+      #   type: boolean
+      #   required: false
+      #   default: false
 
 permissions:
   contents: write # create GitHub Release & upload assets
