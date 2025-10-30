@@ -211,6 +211,24 @@ jobs:
           ls -la  dist/linux/amd64/${{ env.BIN_NAME }}
           ls -la  dist/linux/arm64/${{ env.BIN_NAME }}
 
+      - name: Setup QEMU
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm,arm64
+
+      - name: Setup Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Consul Docker image
+        run: |
+          docker build \
+            --target=default \
+            --build-arg BIN_NAME=${{ env.BIN_NAME }} \
+            --build-arg PRODUCT_VERSION=${{ inputs.hashicorp-consul-tag }} \
+            --build-arg PRODUCT_REVISION=$(git rev-parse --short HEAD) \
+            --platform linux/amd64 \
+            -t my-consul:${{ inputs.hashicorp-consul-tag }} .
+
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
