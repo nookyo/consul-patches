@@ -203,6 +203,13 @@ jobs:
           ls -la  dist/linux/amd64/${{ env.BIN_NAME }}
           ls -la  dist/linux/arm64/${{ env.BIN_NAME }}
 
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Setup QEMU
         uses: docker/setup-qemu-action@v3
         with:
