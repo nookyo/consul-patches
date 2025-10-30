@@ -217,6 +217,9 @@ jobs:
 
       - name: Setup Buildx
         uses: docker/setup-buildx-action@v3
+        with:
+          driver: docker-container
+          install: true
 
       - name: Build Consul Docker image
         run: |
