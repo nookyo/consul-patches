@@ -185,19 +185,6 @@ jobs:
           rm -rf agent/uiserver/dist
           mv ui/packages/consul-ui/dist agent/uiserver/
 
-      # - name: Pack ZIPs + SHA256SUMS (release-style)
-      #   working-directory: consul
-      #   shell: bash
-      #   run: |
-      #     set -eux
-      #     VER_NO_V="${{ steps.vars.outputs.no_v }}"
-      #     mkdir -p ./release
-      #     for ARCH in amd64 arm64; do
-      #       ( cd dist/linux/$ARCH && zip -9 "consul_${VER_NO_V}_linux_${ARCH}.zip" consul )
-      #       cp "dist/linux/$ARCH/consul_${VER_NO_V}_linux_${ARCH}.zip" release/
-      #     done
-      #     ( cd release && sha256sum * > SHA256SUMS.txt )
-
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
@@ -225,22 +212,6 @@ jobs:
             PRODUCT_REVISION=${{ github.sha }}
           push: true
           provenance: false
-
-      # - name: Build Consul Docker image
-      #   run: |
-      #     cp dist/linux/amd64/consul-v1.21.3-patched dist/linux/amd64/consul
-      #     cp dist/linux/arm64/consul-v1.21.3-patched dist/linux/arm64/consul
-
-      #     docker build \
-      #       --target=default \
-      #       --build-arg BIN_NAME=consul \
-      #       --build-arg PRODUCT_VERSION=${{ inputs.hashicorp-consul-tag }} \
-      #       --build-arg PRODUCT_REVISION=$(git rev-parse --short HEAD) \
-      #       --platform linux/amd64,linux/amd64 \
-      #       -t ghcr.io/nookyo/consul:${{ inputs.tag }} \
-      #       --push \
-      #       --provenance=false \
-      #       .
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
