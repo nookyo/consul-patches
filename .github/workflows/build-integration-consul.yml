@@ -192,18 +192,19 @@ jobs:
           rm -rf agent/uiserver/dist
           mv ui/packages/consul-ui/dist agent/uiserver/
 
-      #     - name: Pack ZIPs + SHA256SUMS (release-style)
-      #       working-directory: consul
-      #       shell: bash
-      #       run: |
-      #         set -eux
-      #         VER_NO_V="${{ steps.vars.outputs.no_v }}"
-      #         mkdir -p ./release
-      #         for ARCH in amd64 arm64; do
-      #           ( cd dist/linux/$ARCH && zip -9 "consul_${VER_NO_V}_linux_${ARCH}.zip" consul )
-      #           cp "dist/linux/$ARCH/consul_${VER_NO_V}_linux_${ARCH}.zip" release/
-      #         done
-      #         ( cd release && sha256sum * > SHA256SUMS.txt )
+      # - name: Pack ZIPs + SHA256SUMS (release-style)
+      #   working-directory: consul
+      #   shell: bash
+      #   run: |
+      #     set -eux
+      #     VER_NO_V="${{ steps.vars.outputs.no_v }}"
+      #     mkdir -p ./release
+      #     for ARCH in amd64 arm64; do
+      #       ( cd dist/linux/$ARCH && zip -9 "consul_${VER_NO_V}_linux_${ARCH}.zip" consul )
+      #       cp "dist/linux/$ARCH/consul_${VER_NO_V}_linux_${ARCH}.zip" release/
+      #     done
+      #     ( cd release && sha256sum * > SHA256SUMS.txt )
+
       - name: List
         run: |
           echo "Build output files:"
