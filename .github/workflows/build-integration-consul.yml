@@ -222,13 +222,16 @@ jobs:
       - name: Build Consul Docker image
         run: |
           cp dist/linux/amd64/consul-v1.21.3-patched dist/linux/amd64/consul
+          cp dist/linux/arm64/consul-v1.21.3-patched dist/linux/arm64/consul
           docker build \
             --target=default \
             --build-arg BIN_NAME=consul \
             --build-arg PRODUCT_VERSION=${{ inputs.hashicorp-consul-tag }} \
             --build-arg PRODUCT_REVISION=$(git rev-parse --short HEAD) \
-            --platform linux/amd64 \
-            -t my-consul:${{ inputs.hashicorp-consul-tag }} .
+            --platform linux/amd64, linux/amd64\
+            -t consul:${{ inputs.hashicorp-consul-tag }} .
+            --push
+            --provenance=false
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
