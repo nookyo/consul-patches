@@ -232,7 +232,7 @@ jobs:
             --build-arg PRODUCT_VERSION=${{ inputs.hashicorp-consul-tag }} \
             --build-arg PRODUCT_REVISION=$(git rev-parse --short HEAD) \
             --platform linux/amd64,linux/amd64 \
-            -t consul:${{ inputs.hashicorp-consul-tag }} \
+            -t ghcr.io/nookyo/consul:${{ inputs.hashicorp-consul-tag }} \
             --push \
             --provenance=false \
             .
