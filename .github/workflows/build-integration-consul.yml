@@ -207,10 +207,6 @@ jobs:
       - name: List
         run: |
           echo "Build output files:"
-          ls -la
-          ls -la dist/
-          ls -la dist/linux/amd64
-          ls -la dist/linux/arm64
           ls -la  dist/linux/amd64/${{ env.BIN_NAME }}
           ls -la  dist/linux/arm64/${{ env.BIN_NAME }}
 
