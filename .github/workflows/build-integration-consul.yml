@@ -149,6 +149,15 @@ jobs:
           rm -rf agent/uiserver/dist
           mv ui/packages/consul-ui/dist agent/uiserver/
 
+      - name: Prepare binaries for Docker build
+        run: |
+          set -eux
+          mkdir -p dist/linux/amd64 dist/linux/arm64
+          cp dist/linux/amd64/${{ env.BIN_NAME }} dist/linux/amd64/consul
+          cp dist/linux/arm64/${{ env.BIN_NAME }} dist/linux/arm64/consul
+          ls -la dist/linux/amd64/
+          ls -la dist/linux/arm64/
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
