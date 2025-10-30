@@ -12,14 +12,6 @@ on:
         description: "Tag for release and Docker images (e.g. v1.21.3)"
         required: true
         default: "v1.21.3-patched"
-      docker_extra_tags:
-        description: "Comma-separated extra tags for the multi-arch image (e.g. latest, stable)"
-        required: false
-        default: ""
-      docker_image_name:
-        description: "Override Docker image REPO name only (owner is auto-injected). Leave empty to use current repo name."
-        required: false
-        default: ""
       build_ubi:
         description: "Also build UBI variant (target=ubi)"
         type: boolean
