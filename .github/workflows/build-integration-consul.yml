@@ -185,7 +185,39 @@ jobs:
             dist/linux/amd64/${{ env.BIN_NAME }}
             dist/linux/arm64/${{ env.BIN_NAME }}
           if-no-files-found: error
+      - name: Verify Consul container (server + UI)
+        run: |
+          set -eux
 
+          IMAGE=${{ env.FULL_BASE_IMAGE_NAME }}
+
+          echo "Starting Consul container from image: $IMAGE"
+
+          # Запускаем Consul в dev-режиме (самый быстрый способ)
+          docker run -d --name consul-test -p 8500:8500 "$IMAGE" agent -dev
+
+          # Даем немного времени на старт
+          echo "Waiting for Consul to start..."
+          for i in $(seq 1 20); do
+            if curl -fs http://localhost:8500/v1/status/leader >/dev/null 2>&1; then
+              echo "✅ Consul API is responding"
+              break
+            fi
+            echo "Consul not ready yet ($i)..."
+            sleep 2
+          done
+
+          # Проверяем, что лидер появился
+          curl -f http://localhost:8500/v1/status/leader
+
+          # Проверяем наличие UI — ответ должен быть HTML
+          echo "Checking UI endpoint..."
+          curl -fsI http://localhost:8500/ui/ | grep -i "content-type: text/html"
+
+          echo "✅ Consul UI endpoint is responding with HTML"
+
+          # Останавливаем контейнер
+          docker rm -f consul-test
   # github_release:
   #   name: Create GitHub Release & upload assets
   #   runs-on: ubuntu-latest
