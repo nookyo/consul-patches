@@ -215,8 +215,8 @@ jobs:
         with:
           name: consul-${{ inputs.tag }}
           path: |
-            /dist/linux/amd64/${{ env.BIN_NAME }}
-            /dist/linux/arm64/${{ env.BIN_NAME }}
+            dist/linux/amd64/${{ env.BIN_NAME }}
+            dist/linux/arm64/${{ env.BIN_NAME }}
           if-no-files-found: error
 
   # docker:
