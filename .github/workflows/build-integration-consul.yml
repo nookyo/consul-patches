@@ -30,20 +30,20 @@ jobs:
   build:
     name: Build UI + binaries (amd64/arm64) and pack artifacts
     runs-on: ubuntu-latest
-    outputs:
-      no_v: ${{ steps.vars.outputs.no_v }}
-      repo_lc: ${{ steps.vars.outputs.repo_lc }}
-      image: ${{ steps.vars.outputs.image }}
-      extra_tags: ${{ steps.vars.outputs.extra_tags }}
-      ubi: ${{ steps.vars.outputs.ubi }}
+    # outputs:
+    #   no_v: ${{ steps.vars.outputs.no_v }}
+    #   repo_lc: ${{ steps.vars.outputs.repo_lc }}
+    #   image: ${{ steps.vars.outputs.image }}
+    #   extra_tags: ${{ steps.vars.outputs.extra_tags }}
+    #   ubi: ${{ steps.vars.outputs.ubi }}
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+      # - name: Checkout repository
+      #   uses: actions/checkout@v4
+      #   with:
+      #     fetch-depth: 0
 
-      - name: Checkout hashicorp-consul Source
+      - name: Checkout hashicorp/consul source
         uses: actions/checkout@v5
         with:
           repository: hashicorp/consul
