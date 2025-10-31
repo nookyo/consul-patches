@@ -16,7 +16,7 @@ jobs:
           event-type: "integration-consul-built"
           client-payload: |
             {
-               "base_image": "base image",
+               "base_image": "base image"
             }
           owner: "nookyo"
           repo: "qubership-consul"
