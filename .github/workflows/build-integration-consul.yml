@@ -249,7 +249,7 @@ jobs:
                "tag": "${{ env.TAG }}",
                "patchedTag": "${{ env.CONSUL_PATCHED_TAG }}",
                "repo": "${{ github.repository }}",
-               "owner": "${{ github.repository_owner }}"
+               "owner": "${{ env.REPOSITORY_OWNER_LC }}"
             }
           owner: "${{ env.REPOSITORY_OWNER_LC }}"
           repo: "${{ env.EVENT_TARGET_REPO }}"
