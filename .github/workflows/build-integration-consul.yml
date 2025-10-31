@@ -33,7 +33,7 @@ env:
   TAG: ${{ inputs.tag }}
   NODE_VERSION: "18"
   FULL_BASE_IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/qubership-consul-base:${{ inputs.hashicorp-consul-tag }}-patched
-  EVENT_TARGET_REPO: "nookyo/qubership-consul"
+  EVENT_TARGET_REPO: "qubership-consul"
   CONSUL_PATCHED_TAG: ${{ inputs.tag }}-patched
 
 jobs:
