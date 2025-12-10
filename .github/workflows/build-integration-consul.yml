@@ -12,16 +12,23 @@ on:
         description: "Tag for release and Docker images (e.g. v1.21.3)"
         required: true
         default: "v1.21.3-patched"
+      event-target-repo:
+        description: "Repository to send the custom event to"
+        required: false
+        default: "qubership-consul"
+      event-target-branch:
+        description: "Branch in the target repository to send the event to"
+        required: false
+        default: "main"
+      forceCreate:
+        type: boolean
+        description: "Override tag name (default: true)"
+        default: true
       debug:
         description: "Enable debug output"
         type: boolean
         required: false
         default: false
-      # build_ubi:
-      #   description: "Also build UBI variant (target=ubi)"
-      #   type: boolean
-      #   required: false
-      #   default: false
 
 permissions:
   contents: write # create GitHub Release & upload assets
@@ -33,7 +40,7 @@ env:
   TAG: ${{ inputs.tag }}
   NODE_VERSION: "18"
   FULL_BASE_IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/qubership-consul-base:${{ inputs.hashicorp-consul-tag }}-patched
-  EVENT_TARGET_REPO: "qubership-consul"
+  EVENT_TARGET_REPO: ${{ inputs.event-target-repo }}
   CONSUL_PATCHED_TAG: ${{ inputs.tag }}-patched
 
 jobs:
@@ -42,15 +49,14 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-
       - name: Checkout hashicorp/consul source
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           repository: hashicorp/consul
           ref: ${{ env.HASHICORP_CONSUL_TAG }}
 
       - name: Checkout consul-patches
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           path: consul-patches
 
@@ -232,7 +238,6 @@ jobs:
           docker rm -f consul-test
 
       - name: Print Consul container logs
-        if: ${{ inputs.debug == 'true' }} || failure()
         run: |
           echo "=== Consul container logs ==="
           docker logs consul-test || true
@@ -247,9 +252,11 @@ jobs:
             {
                "base_image": "${{ env.FULL_BASE_IMAGE_NAME}}",
                "tag": "${{ env.TAG }}",
-               "patchedTag": "${{ env.CONSUL_PATCHED_TAG }}",
+               "patched_tag": "${{ env.CONSUL_PATCHED_TAG }}",
                "repo": "${{ github.repository }}",
-               "owner": "${{ env.REPOSITORY_OWNER_LC }}"
+               "owner": "${{ env.REPOSITORY_OWNER_LC }}",
+               "target_branch": "${{ inputs.event-target-branch || github.ref_name }}",
+               "force_create": "${{ inputs.forceCreate }}"
             }
           owner: "${{ env.REPOSITORY_OWNER_LC }}"
           repo: "${{ env.EVENT_TARGET_REPO }}"
